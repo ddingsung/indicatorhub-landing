@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IndicatorHub — 트레이딩 지표 마켓플레이스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-deep:#05070e;--bg-surface:#0a0e1c;--bg-card:#10152a;--bg-card-hover:#161d38;
+  --cyan:#00e5ff;--cyan-dim:rgba(0,229,255,.15);--cyan-glow:rgba(0,229,255,.4);
+  --green:#00ff87;--green-dim:rgba(0,255,135,.12);
+  --red:#ff3d71;--red-dim:rgba(255,61,113,.12);
+  --gold:#ffc857;--gold-dim:rgba(255,200,87,.12);
+  --text-primary:#e4e9f2;--text-secondary:#7a8599;--text-muted:#4a5568;
+  --border:rgba(255,255,255,.06);--border-cyan:rgba(0,229,255,.2);
+  --font-display:'Orbitron',sans-serif;--font-heading:'Rajdhani',sans-serif;
+  --font-body:'Noto Sans KR',sans-serif;--font-mono:'JetBrains Mono',monospace;
+}
+html{scroll-behavior:smooth;font-size:16px}
+body{
+  background:var(--bg-deep);color:var(--text-primary);font-family:var(--font-body);
+  line-height:1.6;overflow-x:hidden;
+}
+::selection{background:var(--cyan);color:var(--bg-deep)}
+
+/* ══════ GRID BACKGROUND ══════ */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(var(--border) 1px,transparent 1px),
+    linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:60px 60px;
+  mask-image:radial-gradient(ellipse 80% 60% at 50% 30%,#000 20%,transparent 70%);
+}
+
+/* ══════ UTILITY ══════ */
+.container{max-width:1240px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+
+/* ══════ NAV ══════ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:16px 0;
+  background:rgba(5,7,14,.7);backdrop-filter:blur(20px) saturate(1.4);
+  border-bottom:1px solid var(--border);
+  transition:background .3s;
+}
+nav.scrolled{background:rgba(5,7,14,.92)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between}
+.nav-logo{
+  font-family:var(--font-display);font-size:1.25rem;font-weight:700;
+  letter-spacing:3px;color:var(--cyan);text-decoration:none;
+  text-shadow:0 0 20px var(--cyan-glow);
+}
+.nav-logo span{color:var(--text-primary);text-shadow:none}
+.nav-links{display:flex;gap:32px;align-items:center;list-style:none}
+.nav-links a{
+  color:var(--text-secondary);text-decoration:none;font-size:.875rem;
+  font-family:var(--font-heading);font-weight:500;letter-spacing:1px;
+  transition:color .2s;position:relative;
+}
+.nav-links a:hover{color:var(--cyan)}
+.nav-links a::after{
+  content:'';position:absolute;bottom:-4px;left:0;width:0;height:1px;
+  background:var(--cyan);transition:width .3s;
+}
+.nav-links a:hover::after{width:100%}
+.nav-cta{
+  background:transparent;border:1px solid var(--cyan);color:var(--cyan);
+  padding:8px 20px;font-family:var(--font-heading);font-size:.875rem;
+  font-weight:600;letter-spacing:1px;cursor:pointer;
+  transition:all .3s;position:relative;overflow:hidden;
+}
+.nav-cta::before{
+  content:'';position:absolute;inset:0;background:var(--cyan);
+  transform:translateX(-101%);transition:transform .3s;z-index:0;
+}
+.nav-cta:hover{color:var(--bg-deep);border-color:var(--cyan)}
+.nav-cta:hover::before{transform:translateX(0)}
+.nav-cta span{position:relative;z-index:1}
+
+/* ══════ HERO ══════ */
+.hero{
+  min-height:100vh;display:flex;align-items:center;
+  padding:120px 0 80px;position:relative;overflow:hidden;
+}
+.hero-glow{
+  position:absolute;width:700px;height:700px;border-radius:50%;
+  background:radial-gradient(circle,var(--cyan-glow) 0%,transparent 70%);
+  top:-200px;right:-100px;opacity:.15;filter:blur(80px);
+  animation:pulseGlow 8s ease-in-out infinite alternate;
+}
+.hero-glow-2{
+  position:absolute;width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,255,135,.3) 0%,transparent 70%);
+  bottom:-100px;left:-150px;opacity:.08;filter:blur(60px);
+  animation:pulseGlow 6s ease-in-out infinite alternate-reverse;
+}
+@keyframes pulseGlow{0%{transform:scale(1);opacity:.1}100%{transform:scale(1.15);opacity:.2}}
+.hero-content{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--cyan-dim);border:1px solid var(--border-cyan);
+  padding:6px 16px;margin-bottom:24px;font-family:var(--font-mono);
+  font-size:.75rem;color:var(--cyan);letter-spacing:1px;
+}
+.hero-badge .dot{width:6px;height:6px;background:var(--cyan);border-radius:50%;
+  animation:blink 1.5s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hero h1{
+  font-family:var(--font-heading);font-size:3.5rem;font-weight:700;
+  line-height:1.1;letter-spacing:-0.5px;margin-bottom:20px;
+}
+.hero h1 .accent{color:var(--cyan);text-shadow:0 0 30px var(--cyan-glow)}
+.hero h1 .thin{font-weight:300;color:var(--text-secondary)}
+.hero-desc{
+  color:var(--text-secondary);font-size:1.05rem;line-height:1.8;
+  margin-bottom:36px;max-width:480px;
+}
+.hero-actions{display:flex;gap:16px;align-items:center}
+.btn-primary{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--cyan);color:var(--bg-deep);
+  padding:14px 32px;font-family:var(--font-heading);font-size:1rem;
+  font-weight:700;letter-spacing:1px;border:none;cursor:pointer;
+  transition:all .3s;text-decoration:none;
+  box-shadow:0 0 30px rgba(0,229,255,.3);
+}
+.btn-primary:hover{
+  transform:translateY(-2px);
+  box-shadow:0 0 50px rgba(0,229,255,.5);
+}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:8px;
+  background:transparent;color:var(--text-secondary);
+  padding:14px 24px;font-family:var(--font-heading);font-size:1rem;
+  font-weight:500;letter-spacing:1px;border:1px solid var(--border);
+  cursor:pointer;transition:all .3s;text-decoration:none;
+}
+.btn-ghost:hover{color:var(--text-primary);border-color:var(--text-muted)}
+
+/* ── HERO CHART ── */
+.hero-chart{position:relative;height:420px}
+.chart-frame{
+  position:relative;width:100%;height:100%;
+  border:1px solid var(--border-cyan);background:rgba(10,14,28,.6);
+  overflow:hidden;
+}
+.chart-frame::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+}
+.chart-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+}
+.chart-pair{
+  font-family:var(--font-mono);font-size:.8rem;color:var(--text-primary);
+  display:flex;align-items:center;gap:8px;
+}
+.chart-pair .symbol{color:var(--cyan);font-weight:600}
+.chart-price{font-family:var(--font-mono);font-size:.8rem}
+.chart-price .up{color:var(--green)}
+.chart-canvas{position:relative;width:100%;height:calc(100% - 44px);padding:16px}
+.chart-canvas canvas{width:100%;height:100%}
+.chart-overlay{
+  position:absolute;bottom:20px;left:20px;
+  background:rgba(5,7,14,.85);border:1px solid var(--border-cyan);
+  padding:12px 16px;backdrop-filter:blur(10px);
+}
+.chart-overlay-title{
+  font-family:var(--font-mono);font-size:.65rem;color:var(--cyan);
+  letter-spacing:2px;margin-bottom:6px;
+}
+.chart-overlay-stats{display:flex;gap:16px}
+.chart-stat{text-align:center}
+.chart-stat-val{font-family:var(--font-mono);font-size:.85rem;font-weight:600;color:var(--green)}
+.chart-stat-val.red{color:var(--red)}
+.chart-stat-label{font-family:var(--font-mono);font-size:.6rem;color:var(--text-muted);letter-spacing:1px;margin-top:2px}
+.chart-scanline{
+  position:absolute;top:44px;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,229,255,.15),transparent);
+  animation:scanline 4s linear infinite;pointer-events:none;
+}
+@keyframes scanline{0%{top:44px}100%{top:100%}}
+
+/* ══════ STATS BAR ══════ */
+.stats-bar{
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  background:var(--bg-surface);padding:40px 0;position:relative;z-index:1;
+}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.stat-item{
+  text-align:center;padding:0 24px;
+  border-right:1px solid var(--border);
+}
+.stat-item:last-child{border-right:none}
+.stat-number{
+  font-family:var(--font-display);font-size:2rem;font-weight:700;
+  color:var(--cyan);letter-spacing:2px;
+  text-shadow:0 0 20px var(--cyan-glow);
+}
+.stat-number .unit{font-size:1rem;color:var(--text-muted);font-weight:400}
+.stat-label{
+  font-family:var(--font-mono);font-size:.7rem;color:var(--text-muted);
+  letter-spacing:2px;margin-top:4px;text-transform:uppercase;
+}
+
+/* ══════ CATEGORIES ══════ */
+.categories{padding:100px 0;position:relative}
+.section-label{
+  font-family:var(--font-mono);font-size:.7rem;color:var(--cyan);
+  letter-spacing:4px;margin-bottom:12px;display:flex;align-items:center;gap:12px;
+}
+.section-label::before{content:'';width:24px;height:1px;background:var(--cyan)}
+.section-title{
+  font-family:var(--font-heading);font-size:2.5rem;font-weight:700;
+  letter-spacing:-0.5px;margin-bottom:16px;
+}
+.section-desc{color:var(--text-secondary);max-width:500px;margin-bottom:48px}
+.cat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+.cat-card{
+  padding:28px 20px;border:1px solid var(--border);background:var(--bg-card);
+  cursor:pointer;transition:all .4s cubic-bezier(.25,.46,.45,.94);
+  position:relative;overflow:hidden;
+}
+.cat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--cyan);transform:scaleX(0);transform-origin:left;
+  transition:transform .4s;
+}
+.cat-card:hover{border-color:var(--border-cyan);background:var(--bg-card-hover);transform:translateY(-4px)}
+.cat-card:hover::before{transform:scaleX(1)}
+.cat-icon{
+  width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+  background:var(--cyan-dim);border:1px solid var(--border-cyan);
+  margin-bottom:16px;font-size:1.2rem;
+}
+.cat-card h3{
+  font-family:var(--font-heading);font-size:1.15rem;font-weight:600;
+  letter-spacing:.5px;margin-bottom:8px;
+}
+.cat-card p{font-size:.8rem;color:var(--text-muted);line-height:1.5}
+.cat-count{
+  font-family:var(--font-mono);font-size:.7rem;color:var(--cyan);
+  margin-top:12px;letter-spacing:1px;
+}
+
+/* ══════ FEATURED PRODUCTS ══════ */
+.featured{padding:100px 0;position:relative}
+.featured-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px}
+.featured-tabs{display:flex;gap:4px}
+.featured-tab{
+  padding:8px 18px;font-family:var(--font-heading);font-size:.875rem;
+  font-weight:500;letter-spacing:1px;color:var(--text-muted);
+  background:transparent;border:1px solid transparent;cursor:pointer;
+  transition:all .3s;
+}
+.featured-tab.active,.featured-tab:hover{color:var(--cyan);border-color:var(--border-cyan);background:var(--cyan-dim)}
+.product-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.product-card{
+  border:1px solid var(--border);background:var(--bg-card);
+  transition:all .4s;position:relative;overflow:hidden;
+}
+.product-card:hover{border-color:var(--border-cyan);transform:translateY(-4px);
+  box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.product-thumb{
+  height:180px;background:var(--bg-surface);position:relative;overflow:hidden;
+  border-bottom:1px solid var(--border);
+}
+.product-thumb canvas{width:100%;height:100%}
+.product-badge{
+  position:absolute;top:12px;left:12px;
+  font-family:var(--font-mono);font-size:.6rem;letter-spacing:2px;
+  padding:4px 10px;
+}
+.badge-verified{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,255,135,.2)}
+.badge-hot{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,61,113,.2)}
+.badge-new{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(255,200,87,.2)}
+.product-platform{
+  position:absolute;top:12px;right:12px;
+  font-family:var(--font-mono);font-size:.6rem;color:var(--text-muted);
+  background:rgba(5,7,14,.7);padding:4px 8px;backdrop-filter:blur(4px);
+  border:1px solid var(--border);
+}
+.product-body{padding:20px}
+.product-meta{
+  display:flex;align-items:center;gap:8px;margin-bottom:8px;
+}
+.product-asset{
+  font-family:var(--font-mono);font-size:.65rem;letter-spacing:1px;
+  padding:2px 8px;border:1px solid var(--border);color:var(--text-muted);
+}
+.product-type{
+  font-family:var(--font-mono);font-size:.65rem;letter-spacing:1px;
+  color:var(--cyan);
+}
+.product-card h3{
+  font-family:var(--font-heading);font-size:1.1rem;font-weight:600;
+  margin-bottom:6px;letter-spacing:.3px;
+}
+.product-card .desc{font-size:.8rem;color:var(--text-muted);line-height:1.5;margin-bottom:16px}
+.product-stats{
+  display:flex;gap:16px;padding-top:12px;border-top:1px solid var(--border);
+  margin-bottom:16px;
+}
+.product-stat{
+  font-family:var(--font-mono);font-size:.7rem;
+}
+.product-stat .label{color:var(--text-muted);margin-right:4px}
+.product-stat .val{color:var(--green);font-weight:600}
+.product-stat .val.neutral{color:var(--text-primary)}
+.product-footer{display:flex;justify-content:space-between;align-items:center}
+.product-price{font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:var(--text-primary)}
+.product-price .won{font-family:var(--font-mono);font-size:.75rem;color:var(--text-muted);font-weight:400}
+.product-rating{display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:.75rem;color:var(--gold)}
+.product-rating .count{color:var(--text-muted);font-size:.7rem}
+
+/* ══════ HOW IT WORKS ══════ */
+.how-it-works{padding:100px 0;background:var(--bg-surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:48px}
+.how-step{padding:32px 28px;border-right:1px solid var(--border);position:relative}
+.how-step:last-child{border-right:none}
+.step-num{
+  font-family:var(--font-display);font-size:3rem;font-weight:900;
+  color:var(--bg-deep);-webkit-text-stroke:1px var(--border-cyan);
+  line-height:1;margin-bottom:20px;
+}
+.how-step h3{
+  font-family:var(--font-heading);font-size:1.2rem;font-weight:600;
+  margin-bottom:10px;letter-spacing:.5px;
+}
+.how-step p{font-size:.85rem;color:var(--text-secondary);line-height:1.7}
+.step-arrow{
+  position:absolute;right:-12px;top:50%;transform:translateY(-50%);
+  color:var(--cyan);font-size:1.2rem;z-index:2;
+  background:var(--bg-surface);padding:4px;
+}
+
+/* ══════ SELLER CTA ══════ */
+.seller-cta{padding:100px 0;position:relative;overflow:hidden}
+.seller-inner{
+  display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;
+  padding:60px;border:1px solid var(--border-cyan);
+  background:linear-gradient(135deg,rgba(0,229,255,.03),transparent 60%);
+  position:relative;
+}
+.seller-inner::before{
+  content:'';position:absolute;top:0;left:0;width:200px;height:200px;
+  background:radial-gradient(circle,var(--cyan-dim),transparent 70%);
+  filter:blur(40px);
+}
+.seller-inner h2{
+  font-family:var(--font-heading);font-size:2.2rem;font-weight:700;
+  line-height:1.2;margin-bottom:16px;
+}
+.seller-inner h2 .accent{color:var(--cyan)}
+.seller-inner .desc{color:var(--text-secondary);margin-bottom:32px;line-height:1.8}
+.seller-features{list-style:none;display:flex;flex-direction:column;gap:16px}
+.seller-features li{
+  display:flex;align-items:flex-start;gap:12px;font-size:.9rem;color:var(--text-secondary);
+}
+.seller-features .check{
+  width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+  background:var(--green-dim);color:var(--green);font-size:.7rem;flex-shrink:0;
+  border:1px solid rgba(0,255,135,.2);margin-top:2px;
+}
+.seller-stats{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.seller-stat-card{
+  padding:24px;border:1px solid var(--border);background:var(--bg-card);
+  text-align:center;
+}
+.seller-stat-card .val{
+  font-family:var(--font-display);font-size:1.6rem;font-weight:700;
+  color:var(--green);margin-bottom:4px;
+}
+.seller-stat-card .label{font-family:var(--font-mono);font-size:.65rem;color:var(--text-muted);letter-spacing:2px}
+
+/* ══════ PRICING ══════ */
+.pricing{padding:100px 0;background:var(--bg-surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:48px}
+.price-card{
+  padding:36px 28px;border:1px solid var(--border);background:var(--bg-card);
+  position:relative;transition:all .4s;
+}
+.price-card:hover{border-color:var(--border-cyan);transform:translateY(-4px)}
+.price-card.popular{border-color:var(--cyan);
+  box-shadow:0 0 40px rgba(0,229,255,.1)}
+.price-card.popular::before{
+  content:'POPULAR';position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+  background:var(--cyan);color:var(--bg-deep);
+  font-family:var(--font-mono);font-size:.6rem;letter-spacing:3px;
+  padding:4px 16px;font-weight:700;
+}
+.price-name{font-family:var(--font-heading);font-size:1.3rem;font-weight:600;letter-spacing:1px;margin-bottom:8px}
+.price-desc{font-size:.8rem;color:var(--text-muted);margin-bottom:24px}
+.price-amount{
+  font-family:var(--font-display);font-size:2.2rem;font-weight:700;
+  margin-bottom:4px;
+}
+.price-amount .won{font-family:var(--font-mono);font-size:.85rem;color:var(--text-muted);font-weight:400}
+.price-period{font-family:var(--font-mono);font-size:.7rem;color:var(--text-muted);letter-spacing:1px;margin-bottom:28px}
+.price-features{list-style:none;display:flex;flex-direction:column;gap:12px;margin-bottom:32px}
+.price-features li{
+  font-size:.85rem;color:var(--text-secondary);display:flex;align-items:center;gap:10px;
+}
+.price-features .icon{color:var(--cyan);font-size:.75rem;width:16px;text-align:center}
+.price-features .disabled{color:var(--text-muted)}
+.price-features .disabled .icon{color:var(--text-muted)}
+.price-btn{
+  width:100%;padding:12px;font-family:var(--font-heading);font-size:.95rem;
+  font-weight:600;letter-spacing:1px;cursor:pointer;
+  border:1px solid var(--border);background:transparent;color:var(--text-primary);
+  transition:all .3s;
+}
+.price-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.price-card.popular .price-btn{
+  background:var(--cyan);color:var(--bg-deep);border-color:var(--cyan);
+}
+.price-card.popular .price-btn:hover{
+  box-shadow:0 0 30px rgba(0,229,255,.4);
+}
+
+/* ══════ FINAL CTA ══════ */
+.final-cta{padding:120px 0;text-align:center;position:relative;overflow:hidden}
+.final-cta::before{
+  content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:800px;height:400px;
+  background:radial-gradient(ellipse,var(--cyan-glow),transparent 70%);
+  opacity:.08;filter:blur(80px);
+}
+.final-cta h2{
+  font-family:var(--font-heading);font-size:3rem;font-weight:700;
+  line-height:1.2;margin-bottom:16px;
+}
+.final-cta h2 .accent{color:var(--cyan);text-shadow:0 0 30px var(--cyan-glow)}
+.final-cta p{color:var(--text-secondary);margin-bottom:40px;font-size:1.05rem;max-width:500px;margin-left:auto;margin-right:auto}
+.final-cta .btn-primary{font-size:1.1rem;padding:16px 48px}
+.terminal-text{
+  font-family:var(--font-mono);font-size:.75rem;color:var(--text-muted);
+  margin-top:24px;letter-spacing:1px;
+}
+.terminal-text .cursor{
+  display:inline-block;width:8px;height:14px;background:var(--cyan);
+  vertical-align:middle;margin-left:4px;animation:blink .8s step-end infinite;
+}
+
+/* ══════ FOOTER ══════ */
+footer{
+  padding:60px 0 40px;border-top:1px solid var(--border);
+  background:var(--bg-surface);
+}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px}
+.footer-brand .logo{
+  font-family:var(--font-display);font-size:1rem;font-weight:700;
+  color:var(--cyan);letter-spacing:3px;margin-bottom:12px;
+}
+.footer-brand p{font-size:.8rem;color:var(--text-muted);line-height:1.7;max-width:280px}
+.footer-col h4{
+  font-family:var(--font-heading);font-size:.9rem;font-weight:600;
+  letter-spacing:1px;margin-bottom:16px;color:var(--text-primary);
+}
+.footer-col ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+.footer-col a{
+  font-size:.8rem;color:var(--text-muted);text-decoration:none;
+  transition:color .2s;
+}
+.footer-col a:hover{color:var(--cyan)}
+.footer-bottom{
+  display:flex;justify-content:space-between;align-items:center;
+  padding-top:24px;border-top:1px solid var(--border);
+}
+.footer-bottom p{font-family:var(--font-mono);font-size:.7rem;color:var(--text-muted);letter-spacing:1px}
+.footer-disclaimer{
+  font-size:.7rem;color:var(--text-muted);line-height:1.6;margin-top:16px;
+  padding:16px;border:1px solid var(--border);background:rgba(255,61,113,.03);
+}
+
+/* ══════ SCROLL ANIMATIONS ══════ */
+.reveal{opacity:0;transform:translateY(30px);transition:all .8s cubic-bezier(.25,.46,.45,.94)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+.reveal-delay-4{transition-delay:.4s}
+
+/* ══════ MOBILE NAV ══════ */
+.nav-toggle{display:none;background:none;border:none;cursor:pointer;padding:8px}
+.nav-toggle span{display:block;width:24px;height:2px;background:var(--text-primary);margin:5px 0;transition:all .3s}
+
+/* ══════ RESPONSIVE ══════ */
+@media(max-width:1024px){
+  .hero-content{grid-template-columns:1fr;text-align:center}
+  .hero-desc{margin-left:auto;margin-right:auto}
+  .hero-actions{justify-content:center}
+  .hero-chart{display:none}
+  .cat-grid{grid-template-columns:repeat(3,1fr)}
+  .product-grid{grid-template-columns:repeat(2,1fr)}
+  .how-grid{grid-template-columns:repeat(2,1fr)}
+  .how-step{border-bottom:1px solid var(--border)}
+  .how-step:nth-child(2n){border-right:none}
+  .step-arrow{display:none}
+  .seller-inner{grid-template-columns:1fr;padding:40px}
+  .footer-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:768px){
+  .nav-links{display:none}
+  .nav-toggle{display:block}
+  .hero h1{font-size:2.4rem}
+  .cat-grid{grid-template-columns:repeat(2,1fr)}
+  .product-grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:24px}
+  .stat-item{border-right:none;border-bottom:1px solid var(--border);padding:16px}
+  .stat-item:nth-last-child(-n+2){border-bottom:none}
+  .how-grid{grid-template-columns:1fr}
+  .how-step{border-right:none}
+  .pricing-grid{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr}
+  .footer-bottom{flex-direction:column;gap:8px;text-align:center}
+  .seller-inner{padding:28px}
+  .section-title{font-size:1.8rem}
+  .final-cta h2{font-size:2rem}
+  .featured-header{flex-direction:column;gap:16px;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════ NAV ══════ -->
+<nav id="nav">
+  <div class="container nav-inner">
+    <a href="#" class="nav-logo">INDICATOR<span>HUB</span></a>
+    <ul class="nav-links">
+      <li><a href="#categories">마켓플레이스</a></li>
+      <li><a href="#featured">인기 지표</a></li>
+      <li><a href="#how">이용방법</a></li>
+      <li><a href="#pricing">요금제</a></li>
+      <li><a href="#seller">판매자 등록</a></li>
+    </ul>
+    <button class="nav-cta"><span>시작하기</span></button>
+    <button class="nav-toggle" aria-label="메뉴 열기">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ══════ HERO ══════ -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow-2"></div>
+  <div class="container hero-content">
+    <div>
+      <div class="hero-badge">
+        <span class="dot"></span>LIVE MARKETPLACE
+      </div>
+      <h1>
+        <span class="thin">검증된 트레이딩 지표를</span><br>
+        <span class="accent">발견</span>하고, <span class="accent">구매</span>하세요
+      </h1>
+      <p class="hero-desc">
+        암호화폐, 주식, 선물 — 백테스트로 검증된 차트 지표와 매매 전략을 한곳에서.
+        1,500개 이상의 프리미엄 트레이딩 도구가 당신을 기다립니다.
+      </p>
+      <div class="hero-actions">
+        <a href="#" class="btn-primary">지표 둘러보기 &rarr;</a>
+        <a href="#seller" class="btn-ghost">판매자로 시작</a>
+      </div>
+    </div>
+    <div class="hero-chart">
+      <div class="chart-frame">
+        <div class="chart-header">
+          <div class="chart-pair">
+            <span class="symbol">BTC/USDT</span>
+            <span style="color:var(--text-muted)">|</span>
+            <span style="color:var(--green)">67,842.50</span>
+          </div>
+          <div class="chart-price">
+            <span class="up">+2.34%</span>
+          </div>
+        </div>
+        <div class="chart-canvas">
+          <canvas id="heroChart"></canvas>
+        </div>
+        <div class="chart-overlay">
+          <div class="chart-overlay-title">SIGNAL PERFORMANCE</div>
+          <div class="chart-overlay-stats">
+            <div class="chart-stat">
+              <div class="chart-stat-val">73.2%</div>
+              <div class="chart-stat-label">WIN RATE</div>
+            </div>
+            <div class="chart-stat">
+              <div class="chart-stat-val">2.41</div>
+              <div class="chart-stat-label">PROFIT FACTOR</div>
+            </div>
+            <div class="chart-stat">
+              <div class="chart-stat-val red">-8.3%</div>
+              <div class="chart-stat-label">MAX DD</div>
+            </div>
+            <div class="chart-stat">
+              <div class="chart-stat-val">1.87</div>
+              <div class="chart-stat-label">SHARPE</div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-scanline"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ STATS BAR ══════ -->
+<section class="stats-bar">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-item reveal">
+        <div class="stat-number" data-count="1500">0<span class="unit">+</span></div>
+        <div class="stat-label">등록 지표</div>
+      </div>
+      <div class="stat-item reveal reveal-delay-1">
+        <div class="stat-number" data-count="80000">0<span class="unit">+</span></div>
+        <div class="stat-label">활성 사용자</div>
+      </div>
+      <div class="stat-item reveal reveal-delay-2">
+        <div class="stat-number">2<span class="unit">억+</span></div>
+        <div class="stat-label">월 거래액</div>
+      </div>
+      <div class="stat-item reveal reveal-delay-3">
+        <div class="stat-number">4.2<span class="unit">/5</span></div>
+        <div class="stat-label">평균 평점</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ CATEGORIES ══════ -->
+<section class="categories" id="categories">
+  <div class="container">
+    <div class="section-label reveal">MARKETPLACE</div>
+    <h2 class="section-title reveal">카테고리별 탐색</h2>
+    <p class="section-desc reveal">트레이딩 스타일에 맞는 지표와 전략을 찾아보세요</p>
+    <div class="cat-grid">
+      <div class="cat-card reveal">
+        <div class="cat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3>차트 지표</h3>
+        <p>RSI, MACD 커스텀부터 독자 개발 지표까지</p>
+        <div class="cat-count">520+ 상품</div>
+      </div>
+      <div class="cat-card reveal reveal-delay-1">
+        <div class="cat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+        </div>
+        <h3>매매 전략</h3>
+        <p>백테스트 검증된 진입/청산 전략 패키지</p>
+        <div class="cat-count">380+ 상품</div>
+      </div>
+      <div class="cat-card reveal reveal-delay-2">
+        <div class="cat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <h3>시그널 알림</h3>
+        <p>실시간 매수/매도 시그널 구독 서비스</p>
+        <div class="cat-count">240+ 상품</div>
+      </div>
+      <div class="cat-card reveal reveal-delay-3">
+        <div class="cat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+        </div>
+        <h3>자동매매 봇</h3>
+        <p>24시간 자동으로 작동하는 트레이딩 봇</p>
+        <div class="cat-count">210+ 상품</div>
+      </div>
+      <div class="cat-card reveal reveal-delay-4">
+        <div class="cat-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <h3>교육 자료</h3>
+        <p>차트 분석, 퀀트 전략 제작 강의</p>
+        <div class="cat-count">150+ 상품</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ FEATURED PRODUCTS ══════ -->
+<section class="featured" id="featured">
+  <div class="container">
+    <div class="featured-header">
+      <div>
+        <div class="section-label reveal">EDITOR'S PICK</div>
+        <h2 class="section-title reveal">인기 지표 & 전략</h2>
+      </div>
+      <div class="featured-tabs reveal">
+        <button class="featured-tab active">전체</button>
+        <button class="featured-tab">암호화폐</button>
+        <button class="featured-tab">국내주식</button>
+        <button class="featured-tab">해외주식</button>
+      </div>
+    </div>
+    <div class="product-grid">
+      <!-- Product 1 -->
+      <div class="product-card reveal">
+        <div class="product-thumb">
+          <canvas class="mini-chart" data-color="cyan" data-trend="up"></canvas>
+          <div class="product-badge badge-verified">VERIFIED</div>
+          <div class="product-platform">TradingView</div>
+        </div>
+        <div class="product-body">
+          <div class="product-meta">
+            <span class="product-asset">CRYPTO</span>
+            <span class="product-type">추세 추종</span>
+          </div>
+          <h3>BTC Momentum Pro v3.2</h3>
+          <p class="desc">비트코인 4시간봉 기준 모멘텀 추세 지표. 다이버전스 자동 감지 포함.</p>
+          <div class="product-stats">
+            <div class="product-stat"><span class="label">승률</span><span class="val">68.4%</span></div>
+            <div class="product-stat"><span class="label">손익비</span><span class="val">2.13</span></div>
+            <div class="product-stat"><span class="label">리뷰</span><span class="val neutral">234</span></div>
+          </div>
+          <div class="product-footer">
+            <div class="product-price">29,000<span class="won">원</span></div>
+            <div class="product-rating">&#9733; 4.7 <span class="count">(234)</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Product 2 -->
+      <div class="product-card reveal reveal-delay-1">
+        <div class="product-thumb">
+          <canvas class="mini-chart" data-color="green" data-trend="up"></canvas>
+          <div class="product-badge badge-hot">HOT</div>
+          <div class="product-platform">바이낸스</div>
+        </div>
+        <div class="product-body">
+          <div class="product-meta">
+            <span class="product-asset">CRYPTO</span>
+            <span class="product-type">스캘핑</span>
+          </div>
+          <h3>Scalp King Auto Bot</h3>
+          <p class="desc">바이낸스 선물 자동매매 봇. 1분~5분봉 스캘핑 전략 탑재.</p>
+          <div class="product-stats">
+            <div class="product-stat"><span class="label">승률</span><span class="val">71.2%</span></div>
+            <div class="product-stat"><span class="label">MDD</span><span class="val">-6.8%</span></div>
+            <div class="product-stat"><span class="label">리뷰</span><span class="val neutral">189</span></div>
+          </div>
+          <div class="product-footer">
+            <div class="product-price">149,000<span class="won">원</span></div>
+            <div class="product-rating">&#9733; 4.5 <span class="count">(189)</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Product 3 -->
+      <div class="product-card reveal reveal-delay-2">
+        <div class="product-thumb">
+          <canvas class="mini-chart" data-color="gold" data-trend="up"></canvas>
+          <div class="product-badge badge-new">NEW</div>
+          <div class="product-platform">키움증권</div>
+        </div>
+        <div class="product-body">
+          <div class="product-meta">
+            <span class="product-asset">국내주식</span>
+            <span class="product-type">스윙</span>
+          </div>
+          <h3>코스피 스윙 마스터</h3>
+          <p class="desc">국내 대형주 일봉 기반 스윙 트레이딩 전략. 거래량 분석 포함.</p>
+          <div class="product-stats">
+            <div class="product-stat"><span class="label">승률</span><span class="val">62.1%</span></div>
+            <div class="product-stat"><span class="label">손익비</span><span class="val">2.87</span></div>
+            <div class="product-stat"><span class="label">리뷰</span><span class="val neutral">56</span></div>
+          </div>
+          <div class="product-footer">
+            <div class="product-price">45,000<span class="won">원</span></div>
+            <div class="product-rating">&#9733; 4.8 <span class="count">(56)</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Product 4 -->
+      <div class="product-card reveal">
+        <div class="product-thumb">
+          <canvas class="mini-chart" data-color="cyan" data-trend="volatile"></canvas>
+          <div class="product-badge badge-verified">VERIFIED</div>
+          <div class="product-platform">TradingView</div>
+        </div>
+        <div class="product-body">
+          <div class="product-meta">
+            <span class="product-asset">해외주식</span>
+            <span class="product-type">변동성</span>
+          </div>
+          <h3>Volatility Squeeze Detector</h3>
+          <p class="desc">볼린저밴드 + 켈트너채널 기반 변동성 압축 구간 탐지 지표.</p>
+          <div class="product-stats">
+            <div class="product-stat"><span class="label">승률</span><span class="val">65.7%</span></div>
+            <div class="product-stat"><span class="label">샤프</span><span class="val">1.94</span></div>
+            <div class="product-stat"><span class="label">리뷰</span><span class="val neutral">312</span></div>
+          </div>
+          <div class="product-footer">
+            <div class="product-price">19,000<span class="won">원</span></div>
+            <div class="product-rating">&#9733; 4.6 <span class="count">(312)</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Product 5 -->
+      <div class="product-card reveal reveal-delay-1">
+        <div class="product-thumb">
+          <canvas class="mini-chart" data-color="green" data-trend="steady"></canvas>
+          <div class="product-badge badge-hot">HOT</div>
+          <div class="product-platform">업비트</div>
+        </div>
+        <div class="product-body">
+          <div class="product-meta">
+            <span class="product-asset">CRYPTO</span>
+            <span class="product-type">시그널</span>
+          </div>
+          <h3>알트코인 시그널 프리미엄</h3>
+          <p class="desc">AI 기반 알트코인 매수/매도 시그널. 텔레그램 실시간 알림.</p>
+          <div class="product-stats">
+            <div class="product-stat"><span class="label">승률</span><span class="val">59.3%</span></div>
+            <div class="product-stat"><span class="label">손익비</span><span class="val">3.21</span></div>
+            <div class="product-stat"><span class="label">리뷰</span><span class="val neutral">421</span></div>
+          </div>
+          <div class="product-footer">
+            <div class="product-price">39,000<span class="won">원/월</span></div>
+            <div class="product-rating">&#9733; 4.3 <span class="count">(421)</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Product 6 -->
+      <div class="product-card reveal reveal-delay-2">
+        <div class="product-thumb">
+          <canvas class="mini-chart" data-color="cyan" data-trend="up"></canvas>
+          <div class="product-badge badge-verified">VERIFIED</div>
+          <div class="product-platform">TradingView</div>
+        </div>
+        <div class="product-body">
+          <div class="product-meta">
+            <span class="product-asset">FX</span>
+            <span class="product-type">역추세</span>
+          </div>
+          <h3>FX Mean Reversion Suite</h3>
+          <p class="desc">주요 통화쌍 평균 회귀 전략. RSI 과매수/과매도 자동 감지.</p>
+          <div class="product-stats">
+            <div class="product-stat"><span class="label">승률</span><span class="val">74.8%</span></div>
+            <div class="product-stat"><span class="label">MDD</span><span class="val">-4.2%</span></div>
+            <div class="product-stat"><span class="label">리뷰</span><span class="val neutral">97</span></div>
+          </div>
+          <div class="product-footer">
+            <div class="product-price">89,000<span class="won">원</span></div>
+            <div class="product-rating">&#9733; 4.9 <span class="count">(97)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ HOW IT WORKS ══════ -->
+<section class="how-it-works" id="how">
+  <div class="container">
+    <div class="section-label reveal">HOW IT WORKS</div>
+    <h2 class="section-title reveal">3분이면 시작할 수 있습니다</h2>
+    <div class="how-grid">
+      <div class="how-step reveal">
+        <div class="step-num">01</div>
+        <h3>탐색하기</h3>
+        <p>카테고리, 자산 유형, 전략 스타일별로 원하는 지표를 검색하고 필터링하세요.</p>
+        <div class="step-arrow">&rarr;</div>
+      </div>
+      <div class="how-step reveal reveal-delay-1">
+        <div class="step-num">02</div>
+        <h3>성과 확인</h3>
+        <p>백테스트 결과, 승률, 손익비, MDD 등 검증된 성과 데이터를 꼼꼼히 확인하세요.</p>
+        <div class="step-arrow">&rarr;</div>
+      </div>
+      <div class="how-step reveal reveal-delay-2">
+        <div class="step-num">03</div>
+        <h3>구매 & 다운로드</h3>
+        <p>안전한 결제 후 즉시 다운로드. TradingView, 바이낸스 등에 바로 적용할 수 있습니다.</p>
+        <div class="step-arrow">&rarr;</div>
+      </div>
+      <div class="how-step reveal reveal-delay-3">
+        <div class="step-num">04</div>
+        <h3>트레이딩 시작</h3>
+        <p>지표를 차트에 적용하고 시그널에 따라 매매하세요. 리뷰로 경험을 공유하세요.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ SELLER CTA ══════ -->
+<section class="seller-cta" id="seller">
+  <div class="container">
+    <div class="seller-inner">
+      <div>
+        <div class="section-label reveal">FOR SELLERS</div>
+        <h2 class="reveal">당신의 <span class="accent">트레이딩 노하우</span>를<br>수익으로 전환하세요</h2>
+        <p class="desc reveal">Pine Script, 자동매매 봇, 매매 전략 — 직접 만든 트레이딩 도구를 전 세계 트레이더에게 판매하세요.</p>
+        <ul class="seller-features reveal">
+          <li><span class="check">&#10003;</span>간편한 상품 등록 & 버전 관리</li>
+          <li><span class="check">&#10003;</span>실시간 판매 대시보드 & 분석 리포트</li>
+          <li><span class="check">&#10003;</span>투명한 정산 (월 단위 자동 정산)</li>
+          <li><span class="check">&#10003;</span>성과 인증 뱃지로 신뢰도 향상</li>
+          <li><span class="check">&#10003;</span>프리미엄 판매자 수수료 15%까지 할인</li>
+        </ul>
+      </div>
+      <div class="seller-stats reveal">
+        <div class="seller-stat-card">
+          <div class="val">&#8361;840만</div>
+          <div class="label">TOP 판매자 월 수익</div>
+        </div>
+        <div class="seller-stat-card">
+          <div class="val">15%</div>
+          <div class="label">최저 수수료율</div>
+        </div>
+        <div class="seller-stat-card">
+          <div class="val">3일</div>
+          <div class="label">평균 심사 기간</div>
+        </div>
+        <div class="seller-stat-card">
+          <div class="val">500+</div>
+          <div class="label">활성 판매자</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ PRICING ══════ -->
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="section-label reveal">PRICING</div>
+    <h2 class="section-title reveal">구매자 요금제</h2>
+    <p class="section-desc reveal">무료로 시작하고, 필요에 따라 업그레이드하세요</p>
+    <div class="pricing-grid">
+      <div class="price-card reveal">
+        <div class="price-name">Free</div>
+        <div class="price-desc">트레이딩 지표 마켓 탐색</div>
+        <div class="price-amount">0<span class="won">원</span></div>
+        <div class="price-period">영구 무료</div>
+        <ul class="price-features">
+          <li><span class="icon">&#10003;</span>마켓플레이스 전체 탐색</li>
+          <li><span class="icon">&#10003;</span>상품 리뷰 열람</li>
+          <li><span class="icon">&#10003;</span>기본 검색 & 필터</li>
+          <li class="disabled"><span class="icon">&#10005;</span>독점 큐레이션 접근</li>
+          <li class="disabled"><span class="icon">&#10005;</span>할인 쿠폰</li>
+          <li class="disabled"><span class="icon">&#10005;</span>신규 지표 조기 접근</li>
+        </ul>
+        <button class="price-btn">무료로 시작</button>
+      </div>
+      <div class="price-card popular reveal reveal-delay-1">
+        <div class="price-name">Pro</div>
+        <div class="price-desc">진지한 트레이더를 위한 플랜</div>
+        <div class="price-amount">9,900<span class="won">원</span></div>
+        <div class="price-period">/ 월</div>
+        <ul class="price-features">
+          <li><span class="icon">&#10003;</span>마켓플레이스 전체 탐색</li>
+          <li><span class="icon">&#10003;</span>독점 큐레이션 컬렉션</li>
+          <li><span class="icon">&#10003;</span>월 5,000원 할인 쿠폰</li>
+          <li><span class="icon">&#10003;</span>신규 지표 24시간 조기 접근</li>
+          <li><span class="icon">&#10003;</span>상세 성과 데이터 열람</li>
+          <li><span class="icon">&#10003;</span>우선 고객 지원</li>
+        </ul>
+        <button class="price-btn">Pro 시작하기</button>
+      </div>
+      <div class="price-card reveal reveal-delay-2">
+        <div class="price-name">Enterprise</div>
+        <div class="price-desc">팀 & 기관 투자자</div>
+        <div class="price-amount">별도 문의</div>
+        <div class="price-period">맞춤 플랜</div>
+        <ul class="price-features">
+          <li><span class="icon">&#10003;</span>Pro 기능 전체 포함</li>
+          <li><span class="icon">&#10003;</span>팀 공유 라이선스</li>
+          <li><span class="icon">&#10003;</span>API 연동 지원</li>
+          <li><span class="icon">&#10003;</span>전담 매니저 배정</li>
+          <li><span class="icon">&#10003;</span>커스텀 큐레이션 리포트</li>
+          <li><span class="icon">&#10003;</span>SLA 보장</li>
+        </ul>
+        <button class="price-btn">문의하기</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ FINAL CTA ══════ -->
+<section class="final-cta">
+  <div class="container">
+    <h2 class="reveal">더 나은 트레이딩은<br><span class="accent">올바른 도구</span>에서 시작됩니다</h2>
+    <p class="reveal">지금 IndicatorHub에서 당신의 전략을 한 단계 업그레이드하세요.</p>
+    <a href="#" class="btn-primary reveal">무료로 시작하기 &rarr;</a>
+    <div class="terminal-text reveal">
+      $ indicatorhub --start --mode=pro<span class="cursor"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ FOOTER ══════ -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo">INDICATORHUB</div>
+        <p>검증된 트레이딩 지표와 전략을 발견하고 거래하는 마켓플레이스. 트레이더에 의한, 트레이더를 위한 플랫폼.</p>
+      </div>
+      <div class="footer-col">
+        <h4>마켓플레이스</h4>
+        <ul>
+          <li><a href="#">차트 지표</a></li>
+          <li><a href="#">매매 전략</a></li>
+          <li><a href="#">시그널 알림</a></li>
+          <li><a href="#">자동매매 봇</a></li>
+          <li><a href="#">교육 자료</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>판매자</h4>
+        <ul>
+          <li><a href="#">판매자 등록</a></li>
+          <li><a href="#">수수료 안내</a></li>
+          <li><a href="#">판매 가이드</a></li>
+          <li><a href="#">API 문서</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>고객지원</h4>
+        <ul>
+          <li><a href="#">자주 묻는 질문</a></li>
+          <li><a href="#">환불 정책</a></li>
+          <li><a href="#">이용약관</a></li>
+          <li><a href="#">개인정보처리방침</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-disclaimer">
+      IndicatorHub는 투자 자문 서비스가 아닌 디지털 상품 거래 플랫폼입니다. 모든 투자의 책임은 본인에게 있으며, 과거 성과가 미래 수익을 보장하지 않습니다. 투자 전 충분한 분석과 판단을 권장합니다.
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 IndicatorHub. All rights reserved.</p>
+      <p>BUILT FOR TRADERS</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ══════ NAV SCROLL ══════ */
+const nav=document.getElementById('nav');
+window.addEventListener('scroll',()=>{nav.classList.toggle('scrolled',window.scrollY>50)});
+
+/* ══════ SCROLL REVEAL ══════ */
+const reveals=document.querySelectorAll('.reveal');
+const observer=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');observer.unobserve(e.target)}})
+},{threshold:.15,rootMargin:'0px 0px -40px 0px'});
+reveals.forEach(el=>observer.observe(el));
+
+/* ══════ HERO CANDLESTICK CHART ══════ */
+function drawHeroChart(){
+  const canvas=document.getElementById('heroChart');
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const rect=canvas.parentElement.getBoundingClientRect();
+  canvas.width=rect.width*dpr;canvas.height=rect.height*dpr;
+  canvas.style.width=rect.width+'px';canvas.style.height=rect.height+'px';
+  ctx.scale(dpr,dpr);
+  const W=rect.width,H=rect.height;
+
+  // Generate candlestick data
+  const candles=[];let price=64000;
+  for(let i=0;i<60;i++){
+    const open=price;
+    const change=(Math.random()-.45)*1200;
+    const close=open+change;
+    const high=Math.max(open,close)+Math.random()*600;
+    const low=Math.min(open,close)-Math.random()*600;
+    candles.push({open,close,high,low});
+    price=close;
+  }
+
+  const minP=Math.min(...candles.map(c=>c.low));
+  const maxP=Math.max(...candles.map(c=>c.high));
+  const range=maxP-minP;
+  const candleW=(W-40)/candles.length;
+  const toY=p=>H-20-((p-minP)/range)*(H-40);
+
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=.5;
+  for(let i=0;i<6;i++){
+    const y=20+(H-40)/5*i;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+  }
+
+  // EMA line
+  ctx.beginPath();ctx.strokeStyle='rgba(0,229,255,.3)';ctx.lineWidth=1.5;
+  let ema=candles[0].close;
+  candles.forEach((c,i)=>{
+    ema=ema*.92+c.close*.08;
+    const x=20+i*candleW+candleW/2;
+    i===0?ctx.moveTo(x,toY(ema)):ctx.lineTo(x,toY(ema));
+  });
+  ctx.stroke();
+
+  // Second EMA
+  ctx.beginPath();ctx.strokeStyle='rgba(255,200,87,.2)';ctx.lineWidth=1;
+  ema=candles[0].close;
+  candles.forEach((c,i)=>{
+    ema=ema*.96+c.close*.04;
+    const x=20+i*candleW+candleW/2;
+    i===0?ctx.moveTo(x,toY(ema)):ctx.lineTo(x,toY(ema));
+  });
+  ctx.stroke();
+
+  // Candles
+  candles.forEach((c,i)=>{
+    const x=20+i*candleW+candleW/2;
+    const isGreen=c.close>=c.open;
+    const color=isGreen?'#00ff87':'#ff3d71';
+    const alpha=.6+i/candles.length*.4;
+
+    // Wick
+    ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,toY(c.high));ctx.lineTo(x,toY(c.low));ctx.stroke();
+
+    // Body
+    const bodyTop=toY(Math.max(c.open,c.close));
+    const bodyH=Math.max(1,Math.abs(toY(c.open)-toY(c.close)));
+    ctx.fillStyle=color;
+    ctx.fillRect(x-candleW*.3,bodyTop,candleW*.6,bodyH);
+  });
+  ctx.globalAlpha=1;
+
+  // Volume bars at bottom
+  candles.forEach((c,i)=>{
+    const x=20+i*candleW+candleW/2;
+    const isGreen=c.close>=c.open;
+    const vol=Math.random()*30+5;
+    ctx.fillStyle=isGreen?'rgba(0,255,135,.1)':'rgba(255,61,113,.1)';
+    ctx.fillRect(x-candleW*.3,H-vol,candleW*.6,vol);
+  });
+
+  // Buy/Sell signals
+  const signals=[
+    {idx:15,type:'buy'},{idx:28,type:'sell'},{idx:42,type:'buy'},{idx:53,type:'buy'}
+  ];
+  signals.forEach(s=>{
+    const c=candles[s.idx];if(!c)return;
+    const x=20+s.idx*candleW+candleW/2;
+    const y=s.type==='buy'?toY(c.low)+12:toY(c.high)-12;
+    ctx.fillStyle=s.type==='buy'?'#00ff87':'#ff3d71';
+    ctx.beginPath();
+    if(s.type==='buy'){
+      ctx.moveTo(x,y-8);ctx.lineTo(x+5,y);ctx.lineTo(x-5,y);
+    }else{
+      ctx.moveTo(x,y+8);ctx.lineTo(x+5,y);ctx.lineTo(x-5,y);
+    }
+    ctx.fill();
+  });
+}
+
+/* ══════ MINI CHARTS FOR PRODUCT CARDS ══════ */
+function drawMiniCharts(){
+  document.querySelectorAll('.mini-chart').forEach(canvas=>{
+    const ctx=canvas.getContext('2d');
+    const dpr=window.devicePixelRatio||1;
+    const rect=canvas.parentElement.getBoundingClientRect();
+    canvas.width=rect.width*dpr;canvas.height=rect.height*dpr;
+    canvas.style.width='100%';canvas.style.height='100%';
+    ctx.scale(dpr,dpr);
+    const W=rect.width,H=rect.height;
+
+    const colorName=canvas.dataset.color||'cyan';
+    const colors={cyan:'0,229,255',green:'0,255,135',gold:'255,200,87'};
+    const rgb=colors[colorName]||colors.cyan;
+    const trend=canvas.dataset.trend||'up';
+
+    // Generate line data
+    const pts=[];let val=50;
+    for(let i=0;i<80;i++){
+      const bias=trend==='up'?.3:trend==='volatile'?0:.15;
+      val+=((Math.random()-.5+bias)*3);
+      val=Math.max(10,Math.min(90,val));
+      pts.push(val);
+    }
+
+    const min=Math.min(...pts)-5;const max=Math.max(...pts)+5;
+    const toX=i=>(i/(pts.length-1))*W;
+    const toY=v=>H-((v-min)/(max-min))*H;
+
+    // Gradient fill
+    const grad=ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,`rgba(${rgb},.12)`);
+    grad.addColorStop(1,`rgba(${rgb},0)`);
+    ctx.beginPath();ctx.moveTo(toX(0),H);
+    pts.forEach((v,i)=>ctx.lineTo(toX(i),toY(v)));
+    ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+
+    // Line
+    ctx.beginPath();ctx.strokeStyle=`rgba(${rgb},.6)`;ctx.lineWidth=1.5;
+    pts.forEach((v,i)=>{i===0?ctx.moveTo(toX(i),toY(v)):ctx.lineTo(toX(i),toY(v))});
+    ctx.stroke();
+
+    // Grid
+    ctx.strokeStyle='rgba(255,255,255,.03)';ctx.lineWidth=.5;
+    for(let i=1;i<4;i++){
+      const y=H/4*i;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+    }
+  });
+}
+
+/* ══════ COUNTER ANIMATION ══════ */
+function animateCounters(){
+  document.querySelectorAll('[data-count]').forEach(el=>{
+    const target=parseInt(el.dataset.count);
+    const duration=2000;
+    const start=performance.now();
+    const tick=now=>{
+      const progress=Math.min((now-start)/duration,1);
+      const eased=1-Math.pow(1-progress,3);
+      el.innerHTML=Math.floor(target*eased).toLocaleString()+el.querySelector('.unit')?.outerHTML||'';
+      if(progress<1)requestAnimationFrame(tick);
+    };
+    const obs=new IntersectionObserver(entries=>{
+      if(entries[0].isIntersecting){requestAnimationFrame(tick);obs.disconnect()}
+    });
+    obs.observe(el);
+  });
+}
+
+/* ══════ FEATURED TABS ══════ */
+document.querySelectorAll('.featured-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.featured-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+
+/* ══════ INIT ══════ */
+window.addEventListener('DOMContentLoaded',()=>{
+  drawHeroChart();
+  drawMiniCharts();
+  animateCounters();
+});
+window.addEventListener('resize',()=>{drawHeroChart();drawMiniCharts()});
+</script>
+</body>
+</html>
