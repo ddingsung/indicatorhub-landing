@@ -530,6 +530,21 @@ footer{
 </head>
 <body>
 
+<!-- ══════ DESIGN SWITCHER ══════ -->
+<a href="landing-v2.html" class="design-switch" style="
+  position:fixed;top:24px;right:24px;z-index:1000;
+  display:flex;align-items:center;gap:10px;
+  background:rgba(16,21,42,.85);border:1px solid var(--border-cyan);
+  padding:10px 20px;cursor:pointer;text-decoration:none;
+  backdrop-filter:blur(12px);transition:all .3s;
+">
+  <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,229,255,.1);border:1px solid var(--border-cyan);color:var(--cyan);font-size:.85rem">&#9734;</div>
+  <div>
+    <div style="font-family:var(--font-mono);font-size:.65rem;color:var(--text-muted);letter-spacing:1px">디자인 전환</div>
+    <div style="font-family:var(--font-heading);font-size:.9rem;font-weight:600;color:var(--text-primary);letter-spacing:.5px">Trust 버전 보기</div>
+  </div>
+</a>
+
 <!-- ══════ NAV ══════ -->
 <nav id="nav">
   <div class="container nav-inner">
