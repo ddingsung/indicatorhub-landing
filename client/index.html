@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IndicatorHub — 청산 히트맵</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <a class="logo" href="/">INDICATOR<span>HUB</span></a>
+    <div class="divider"></div>
+    <h1 class="page-title">청산 히트맵</h1>
+  </div>
+  <div class="header-right">
+    <div class="symbol-badge">BTCUSDT</div>
+    <div class="price-display">
+      <span class="price" id="currentPrice">--</span>
+    </div>
+    <div class="status-dot" id="statusDot" title="연결 상태"></div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="control-group">
+    <span class="control-label">시간대</span>
+    <div class="btn-group" id="timeframeBtns">
+      <button class="btn-ctrl" data-tf="5m">5m</button>
+      <button class="btn-ctrl" data-tf="15m">15m</button>
+      <button class="btn-ctrl active" data-tf="1h">1h</button>
+      <button class="btn-ctrl" data-tf="4h">4h</button>
+      <button class="btn-ctrl" data-tf="1d">1d</button>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <span class="control-label">차트 모드</span>
+    <div class="btn-group" id="chartModeBtns">
+      <button class="btn-ctrl active" data-mode="heatmap">히트맵</button>
+      <button class="btn-ctrl" data-mode="overlay">캔들+히트맵</button>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <span class="control-label">뷰 모드</span>
+    <div class="btn-group" id="viewModeBtns">
+      <button class="btn-ctrl active" data-view="all">전체</button>
+      <button class="btn-ctrl" data-view="long">롱</button>
+      <button class="btn-ctrl" data-view="short">숏</button>
+    </div>
+  </div>
+
+  <div class="control-spacer"></div>
+
+  <div class="color-legend" id="colorLegend">
+    <span class="legend-label">약함</span>
+    <div class="legend-gradient" id="legendGradient"></div>
+    <span class="legend-label">강함</span>
+  </div>
+</div>
+
+<main class="main">
+  <div class="chart-container" id="chartContainer">
+    <canvas id="mainCanvas"></canvas>
+    <div class="y-axis" id="yAxis"></div>
+    <div class="x-axis" id="xAxis"></div>
+  </div>
+</main>
+
+<div class="feed-panel" id="feedPanel">
+  <div class="feed-header">
+    <span class="feed-title">최근 청산</span>
+    <span class="feed-subtitle">실시간</span>
+  </div>
+  <div class="feed-list" id="feedList">
+    <div class="feed-empty">청산 데이터 수신 대기 중...</div>
+  </div>
+</div>
+
+<div class="data-notice" id="dataNotice">
+  <span class="notice-icon">ℹ</span>
+  <span id="noticeText">서버에 연결하는 중...</span>
+</div>
+
+<script src="js/heatmap.js"></script>
+<script src="js/candlestick.js"></script>
+<script src="js/controls.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
