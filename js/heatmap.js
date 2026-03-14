@@ -1,29 +1,24 @@
 /* ═══════════════════════════════════════════
    HeatmapRenderer
    Renders liquidation volume as a color-coded heatmap on a canvas.
+
+   Accepts bucket data in array format from server:
+     [{ time, priceLevels: { [priceKey]: { long, short } } }]
    ═══════════════════════════════════════════ */
 
 (function () {
   'use strict';
 
-  // Axis dimensions (pixels)
   var AXIS_LEFT   = 70;
   var AXIS_RIGHT  = 60;
   var AXIS_BOTTOM = 28;
 
-  /* ── color palettes ────────────────────────────────────────────── */
   var PALETTES = {
     all:   [[10,14,28], [26,58,92], [240,192,64], [255,61,61]],
     long:  [[10,14,28], [80,20,20], [200,40,40], [255,61,113]],
     short: [[10,14,28], [15,60,30], [0,180,90], [0,255,135]]
   };
 
-  /**
-   * Multi-stop linear interpolation between RGB color stops.
-   * @param {number[][]} colors - Array of [r,g,b] stops
-   * @param {number} t - 0..1
-   * @returns {number[]} [r,g,b]
-   */
   function lerpColor(colors, t) {
     if (t <= 0) return colors[0].slice();
     if (t >= 1) return colors[colors.length - 1].slice();
@@ -44,20 +39,12 @@
     ];
   }
 
-  /**
-   * HeatmapRenderer
-   * @param {HTMLCanvasElement} canvas
-   */
   function HeatmapRenderer(canvas) {
     this.canvas = canvas;
     this.ctx    = canvas.getContext('2d');
     this.dpr    = window.devicePixelRatio || 1;
   }
 
-  /**
-   * Resize canvas to fill its container, accounting for axes.
-   * Must be called whenever the container size changes.
-   */
   HeatmapRenderer.prototype.resize = function () {
     var container = this.canvas.parentElement;
     if (!container) return;
@@ -78,12 +65,11 @@
   /**
    * Render heatmap buckets onto the canvas.
    *
-   * @param {Object} buckets
-   *   { [timestamp]: { [priceLevel]: { total, long, short } } }
+   * @param {Array} buckets - Array of { time, priceLevels: { [price]: { long, short } } }
    * @param {Object} opts
    *   - viewMode: 'all' | 'long' | 'short'
    *   - currentPrice: number
-   *   - priceRange: number  (fraction of price, default 0.02 = ±2%)
+   *   - priceRange: number (fraction, default 0.02 = ±2%)
    * @returns {{ priceLow, priceHigh, times, bucketWidth }}
    */
   HeatmapRenderer.prototype.render = function (buckets, opts) {
@@ -97,50 +83,45 @@
     var W      = canvas.width  / this.dpr;
     var H      = canvas.height / this.dpr;
 
-    /* ── clear ───────────────────────────────────────────────────── */
     ctx.clearRect(0, 0, W, H);
 
-    /* ── drawable area ───────────────────────────────────────────── */
     var drawX = AXIS_LEFT;
-    var drawY = 0;
     var drawW = W - AXIS_LEFT - AXIS_RIGHT;
     var drawH = H - AXIS_BOTTOM;
 
-    /* ── validate buckets ───────────────────────────────────────── */
-    var times = buckets ? Object.keys(buckets).map(Number).sort(function (a, b) { return a - b; }) : [];
-
-    if (!buckets || times.length === 0) {
-      this._drawMessage(ctx, drawX + drawW / 2, drawY + drawH / 2, '데이터 수집 중...');
+    if (!buckets || buckets.length === 0) {
+      this._drawMessage(ctx, drawX + drawW / 2, drawH / 2, '데이터 수집 중...');
       return { priceLow: 0, priceHigh: 0, times: [], bucketWidth: 0 };
     }
 
-    /* ── price range ─────────────────────────────────────────────── */
+    // Extract sorted times from array
+    var times = buckets.map(function (b) { return b.time; });
+
+    // Price range
     var priceLow, priceHigh;
     if (currentPrice > 0) {
       priceLow  = currentPrice * (1 - priceRange);
       priceHigh = currentPrice * (1 + priceRange);
     } else {
-      // auto-range from data
       var allPrices = [];
-      times.forEach(function (t) {
-        Object.keys(buckets[t]).forEach(function (p) { allPrices.push(Number(p)); });
+      buckets.forEach(function (b) {
+        Object.keys(b.priceLevels).forEach(function (p) { allPrices.push(Number(p)); });
       });
       if (allPrices.length === 0) {
-        this._drawMessage(ctx, drawX + drawW / 2, drawY + drawH / 2, '범위 내 청산 데이터 없음');
-        return { priceLow: 0, priceHigh: 0, times: [], bucketWidth: 0 };
+        this._drawMessage(ctx, drawX + drawW / 2, drawH / 2, '범위 내 청산 데이터 없음');
+        return { priceLow: 0, priceHigh: 0, times: times, bucketWidth: 0 };
       }
       priceLow  = Math.min.apply(null, allPrices);
       priceHigh = Math.max.apply(null, allPrices);
-      // Add a small margin
-      var margin = (priceHigh - priceLow) * 0.05;
+      var margin = (priceHigh - priceLow) * 0.05 || 50;
       priceLow  -= margin;
       priceHigh += margin;
     }
 
-    /* ── collect price keys in range ─────────────────────────────── */
+    // Collect price keys in range
     var priceKeysSet = {};
-    times.forEach(function (t) {
-      Object.keys(buckets[t]).forEach(function (pk) {
+    buckets.forEach(function (b) {
+      Object.keys(b.priceLevels).forEach(function (pk) {
         var p = Number(pk);
         if (p >= priceLow && p <= priceHigh) {
           priceKeysSet[pk] = true;
@@ -150,42 +131,43 @@
     var priceKeys = Object.keys(priceKeysSet).map(Number).sort(function (a, b) { return a - b; });
 
     if (priceKeys.length === 0) {
-      this._drawMessage(ctx, drawX + drawW / 2, drawY + drawH / 2, '범위 내 청산 데이터 없음');
+      this._drawMessage(ctx, drawX + drawW / 2, drawH / 2, '범위 내 청산 데이터 없음');
       return { priceLow: priceLow, priceHigh: priceHigh, times: times, bucketWidth: 0 };
     }
 
-    /* ── find max log-volume in viewport ────────────────────────── */
+    // Find max log-volume in viewport
     var maxLogVol = 0;
-    var volumeKey = viewMode === 'long' ? 'long' : (viewMode === 'short' ? 'short' : 'total');
-
-    times.forEach(function (t) {
-      var bucket = buckets[t];
+    buckets.forEach(function (b) {
       priceKeys.forEach(function (pk) {
-        var cell = bucket[pk] || bucket[String(pk)];
-        if (cell) {
-          var vol    = cell[volumeKey] || cell.total || 0;
-          var logVol = Math.log1p(vol);
-          if (logVol > maxLogVol) maxLogVol = logVol;
-        }
+        var cell = b.priceLevels[pk] || b.priceLevels[String(pk)];
+        if (!cell) return;
+        var vol = 0;
+        if (viewMode === 'all')       vol = (cell.long || 0) + (cell.short || 0);
+        else if (viewMode === 'long') vol = cell.long || 0;
+        else                          vol = cell.short || 0;
+        var logVol = Math.log1p(vol);
+        if (logVol > maxLogVol) maxLogVol = logVol;
       });
     });
 
     if (maxLogVol === 0) maxLogVol = 1;
 
-    /* ── grid dimensions ─────────────────────────────────────────── */
-    var nCols       = times.length;
-    var bucketWidth = drawW / nCols;
+    var nCols       = buckets.length;
+    var colWidth    = drawW / nCols;
+    var palette     = PALETTES[viewMode] || PALETTES.all;
 
-    var palette = PALETTES[viewMode] || PALETTES.all;
-
-    /* ── draw cells ──────────────────────────────────────────────── */
-    times.forEach(function (t, colIdx) {
-      var bucket = buckets[t];
-      var cellX  = drawX + colIdx * bucketWidth;
+    // Draw cells
+    buckets.forEach(function (bucket, colIdx) {
+      var cellX = drawX + colIdx * colWidth;
 
       priceKeys.forEach(function (pk) {
-        var cell = bucket[pk] || bucket[String(pk)];
-        var vol  = cell ? (cell[volumeKey] || cell.total || 0) : 0;
+        var cell = bucket.priceLevels[pk] || bucket.priceLevels[String(pk)];
+        if (!cell) return;
+
+        var vol = 0;
+        if (viewMode === 'all')       vol = (cell.long || 0) + (cell.short || 0);
+        else if (viewMode === 'long') vol = cell.long || 0;
+        else                          vol = cell.short || 0;
 
         if (vol <= 0) return;
 
@@ -193,11 +175,9 @@
         var t01    = Math.min(1, logVol / maxLogVol);
         var rgb    = lerpColor(palette, t01);
 
-        // Price → Y (inverted: high price = top)
         var priceFrac = (pk - priceLow) / (priceHigh - priceLow);
-        var cellY     = drawY + drawH * (1 - priceFrac);
+        var cellY     = drawH * (1 - priceFrac);
 
-        // Height of one price bucket
         var priceStep = (priceHigh - priceLow) / priceKeys.length;
         var cellH     = Math.max(1, drawH * priceStep / (priceHigh - priceLow));
 
@@ -205,16 +185,16 @@
         ctx.fillRect(
           Math.floor(cellX),
           Math.floor(cellY - cellH),
-          Math.ceil(bucketWidth) + 1,
+          Math.ceil(colWidth) + 1,
           Math.ceil(cellH) + 1
         );
       });
     });
 
-    /* ── current price line ──────────────────────────────────────── */
+    // Current price line
     if (currentPrice >= priceLow && currentPrice <= priceHigh) {
       var priceFracLine = (currentPrice - priceLow) / (priceHigh - priceLow);
-      var lineY = drawY + drawH * (1 - priceFracLine);
+      var lineY = drawH * (1 - priceFracLine);
 
       ctx.save();
       ctx.strokeStyle = '#00e5ff';
@@ -232,11 +212,10 @@
       priceLow:    priceLow,
       priceHigh:   priceHigh,
       times:       times,
-      bucketWidth: bucketWidth
+      bucketWidth: colWidth
     };
   };
 
-  /* ── internal helper ─────────────────────────────────────────────── */
   HeatmapRenderer.prototype._drawMessage = function (ctx, x, y, msg) {
     ctx.save();
     ctx.font      = '13px "JetBrains Mono", monospace';
@@ -247,7 +226,6 @@
     ctx.restore();
   };
 
-  /* ── expose globally ─────────────────────────────────────────────── */
   window.HeatmapRenderer = HeatmapRenderer;
 
 }());

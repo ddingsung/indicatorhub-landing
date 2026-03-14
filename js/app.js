@@ -1,26 +1,29 @@
 /* ═══════════════════════════════════════════
    app.js — Liquidation Heatmap Dashboard
    Orchestrates WebSocket, rendering, controls, and feed.
+
+   Server protocol (version: 1):
+     snapshot:      { heatmap: { buckets }, candles, currentPrice, binanceConnected, collectingSince }
+     liquidation:   { side, price, quantity, timestamp }
+     candle_update: { candle: { open, high, low, close, volume, time } }
+     status:        { binanceConnected, collectingSince }
    ═══════════════════════════════════════════ */
 
 (function () {
   'use strict';
 
-  /* ─────────────────────────────────────────
-     State
-  ───────────────────────────────────────── */
+  var SNAPSHOT_REFRESH_MS = 30000; // re-fetch snapshot every 30s for heatmap updates
+
   var state = {
-    heatmapBuckets:      null,   // { [ts]: { [price]: { total, long, short } } }
+    heatmapBuckets:      [],     // array of { time, priceLevels }
     candles:             [],     // OHLC array
     currentPrice:        0,
-    collectingSince:     null,   // ISO string from server
-    recentLiquidations:  [],     // max 8
-    lastRenderResult:    null    // cached heatmap render output
+    collectingSince:     null,
+    recentLiquidations:  [],
+    lastRenderResult:    null
   };
 
-  /* ─────────────────────────────────────────
-     DOM refs
-  ───────────────────────────────────────── */
+  /* ── DOM refs ──────────────────────────── */
   var canvas      = document.getElementById('mainCanvas');
   var yAxisEl     = document.getElementById('yAxis');
   var xAxisEl     = document.getElementById('xAxis');
@@ -29,21 +32,18 @@
   var statusDot   = document.getElementById('statusDot');
   var priceEl     = document.getElementById('currentPrice');
 
-  /* ─────────────────────────────────────────
-     Renderers & Controls
-  ───────────────────────────────────────── */
+  /* ── Renderers & Controls ──────────────── */
   var heatmap     = new window.HeatmapRenderer(canvas);
   var candlestick = new window.CandlestickRenderer(canvas);
   var controls    = new window.Controls();
 
   controls.init();
 
-  /* ─────────────────────────────────────────
-     WebSocket
-  ───────────────────────────────────────── */
-  var ws          = null;
-  var pingTimer   = null;
-  var reconnTimer = null;
+  /* ── WebSocket ─────────────────────────── */
+  var ws            = null;
+  var pingTimer     = null;
+  var reconnTimer   = null;
+  var snapshotTimer = null;
 
   function wsUrl() {
     var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -74,6 +74,12 @@
         ws.send(JSON.stringify({ type: 'ping' }));
       }
     }, 5000);
+
+    // Periodic snapshot refresh for heatmap updates
+    clearInterval(snapshotTimer);
+    snapshotTimer = setInterval(function () {
+      sendSubscribe();
+    }, SNAPSHOT_REFRESH_MS);
   }
 
   function onMessage(event) {
@@ -81,18 +87,19 @@
     try { msg = JSON.parse(event.data); } catch (e) { return; }
 
     switch (msg.type) {
-      case 'snapshot':      handleSnapshot(msg);          break;
-      case 'liquidation':   handleLiquidation(msg);       break;
-      case 'candle_update': handleCandleUpdate(msg);      break;
-      case 'status':        handleStatus(msg);            break;
-      case 'pong':                                        break;
-      default:                                            break;
+      case 'snapshot':      handleSnapshot(msg);     break;
+      case 'liquidation':   handleLiquidation(msg);  break;
+      case 'candle_update': handleCandleUpdate(msg); break;
+      case 'status':        handleStatus(msg);       break;
+      case 'pong':                                   break;
     }
   }
 
   function onClose() {
     clearInterval(pingTimer);
+    clearInterval(snapshotTimer);
     pingTimer = null;
+    snapshotTimer = null;
     setStatus('disconnected');
     scheduleReconnect();
   }
@@ -117,14 +124,25 @@
     }));
   }
 
-  /* ─────────────────────────────────────────
-     Message Handlers
-  ───────────────────────────────────────── */
+  /* ── Message Handlers ──────────────────── */
+
   function handleSnapshot(msg) {
-    if (msg.buckets !== undefined)     state.heatmapBuckets  = msg.buckets;
-    if (msg.candles !== undefined)     state.candles         = msg.candles  || [];
-    if (msg.price   !== undefined)     state.currentPrice    = Number(msg.price)  || 0;
-    if (msg.collectingSince)           state.collectingSince = msg.collectingSince;
+    // Server sends: { heatmap: { symbol, timeframe, buckets: [...] }, candles, currentPrice, binanceConnected, collectingSince }
+    if (msg.heatmap && msg.heatmap.buckets) {
+      state.heatmapBuckets = msg.heatmap.buckets;
+    }
+    if (msg.candles) {
+      state.candles = msg.candles;
+    }
+    if (msg.currentPrice) {
+      state.currentPrice = Number(msg.currentPrice) || 0;
+    }
+    if (msg.collectingSince) {
+      state.collectingSince = msg.collectingSince;
+    }
+    if (msg.binanceConnected) {
+      setStatus('connected');
+    }
 
     updatePrice();
     updateDataNotice();
@@ -132,35 +150,26 @@
   }
 
   function handleLiquidation(msg) {
+    // Server sends: { side, price, quantity, timestamp }
     if (msg.price) state.currentPrice = Number(msg.price) || state.currentPrice;
 
-    // Update bucket
-    if (msg.priceLevel && msg.time && msg.side && msg.quantity) {
-      var t = msg.time;
-      var p = msg.priceLevel;
-      if (!state.heatmapBuckets) state.heatmapBuckets = {};
-      if (!state.heatmapBuckets[t]) state.heatmapBuckets[t] = {};
-      var cell = state.heatmapBuckets[t][p] || { total: 0, long: 0, short: 0 };
-      var qty  = Number(msg.quantity) || 0;
-      cell.total += qty;
-      if (msg.side === 'long')  cell.long  += qty;
-      if (msg.side === 'short') cell.short += qty;
-      state.heatmapBuckets[t][p] = cell;
-    }
+    addLiquidationToFeed({
+      price:    Number(msg.price),
+      side:     msg.side,
+      quantity: Number(msg.quantity),
+      time:     msg.timestamp || Date.now()
+    });
 
-    addLiquidationToFeed(msg);
     updatePrice();
-    scheduleRender();
   }
 
   function handleCandleUpdate(msg) {
     if (!msg.candle) return;
     var candle = msg.candle;
-    if (candle.price) state.currentPrice = Number(candle.close || candle.price) || state.currentPrice;
+    state.currentPrice = Number(candle.close) || state.currentPrice;
 
     var candles = state.candles;
     if (candles.length > 0 && candles[candles.length - 1].time === candle.time) {
-      // Update last candle (same period)
       candles[candles.length - 1] = candle;
     } else {
       candles.push(candle);
@@ -171,8 +180,9 @@
   }
 
   function handleStatus(msg) {
-    if (msg.connected !== undefined) {
-      setStatus(msg.connected ? 'connected' : 'disconnected');
+    // Server sends: { binanceConnected, collectingSince }
+    if (msg.binanceConnected !== undefined) {
+      setStatus(msg.binanceConnected ? 'connected' : 'disconnected');
     }
     if (msg.collectingSince) {
       state.collectingSince = msg.collectingSince;
@@ -180,9 +190,7 @@
     }
   }
 
-  /* ─────────────────────────────────────────
-     Rendering
-  ───────────────────────────────────────── */
+  /* ── Rendering ─────────────────────────── */
   var rafPending = false;
 
   function scheduleRender() {
@@ -197,9 +205,9 @@
   function render() {
     heatmap.resize();
 
-    var dpr    = window.devicePixelRatio || 1;
-    var W      = canvas.width  / dpr;
-    var H      = canvas.height / dpr;
+    var dpr = window.devicePixelRatio || 1;
+    var W   = canvas.width  / dpr;
+    var H   = canvas.height / dpr;
 
     var result = heatmap.render(state.heatmapBuckets, {
       viewMode:     controls.viewMode,
@@ -209,7 +217,6 @@
 
     state.lastRenderResult = result;
 
-    // Overlay candlesticks if mode is 'overlay'
     if (controls.chartMode === 'overlay' && state.candles.length > 0 && result.priceLow && result.priceHigh) {
       var ctx = canvas.getContext('2d');
       ctx.save();
@@ -226,9 +233,7 @@
     updateAxes(result);
   }
 
-  /* ─────────────────────────────────────────
-     Axes
-  ───────────────────────────────────────── */
+  /* ── Axes ───────────────────────────────── */
   function updateAxes(result) {
     if (!result) return;
     updateYAxis(result.priceLow, result.priceHigh);
@@ -262,21 +267,18 @@
       return;
     }
 
-    // Show ~6 evenly spaced time ticks
     var step = Math.max(1, Math.floor(times.length / 6));
     var html = '';
     for (var i = 0; i < times.length; i += step) {
       var t   = times[i];
-      var dt  = new Date(t < 1e12 ? t * 1000 : t); // handle s or ms
+      var dt  = new Date(t < 1e12 ? t * 1000 : t);
       var str = dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
       html += '<span class="x-tick">' + str + '</span>';
     }
     xAxisEl.innerHTML = html;
   }
 
-  /* ─────────────────────────────────────────
-     Price Display
-  ───────────────────────────────────────── */
+  /* ── Price Display ─────────────────────── */
   var lastDisplayedPrice = 0;
 
   function updatePrice() {
@@ -301,25 +303,21 @@
     return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
   }
 
-  /* ─────────────────────────────────────────
-     Status Dot
-  ───────────────────────────────────────── */
+  /* ── Status Dot ────────────────────────── */
   function setStatus(status) {
     if (!statusDot) return;
     statusDot.classList.remove('connected', 'error');
-    if (status === 'connected')    statusDot.classList.add('connected');
-    if (status === 'error')        statusDot.classList.add('error');
+    if (status === 'connected') statusDot.classList.add('connected');
+    if (status === 'error')     statusDot.classList.add('error');
   }
 
-  /* ─────────────────────────────────────────
-     Data Notice
-  ───────────────────────────────────────── */
+  /* ── Data Notice ───────────────────────── */
   function updateDataNotice() {
     if (!noticeTxtEl) return;
     var parts = [];
 
     if (state.collectingSince) {
-      var since  = new Date(state.collectingSince);
+      var since = new Date(state.collectingSince);
       var sinceStr = since.toLocaleString('ko-KR', {
         month: 'numeric', day: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: false
@@ -327,20 +325,13 @@
       parts.push('수집 시작: ' + sinceStr);
     }
 
-    parts.push('데이터는 참고용이며 투자 결정의 근거로 사용하지 마십시오.');
+    parts.push('데이터는 거래소 제공 기준이며, 고변동 구간에서 일부 누락될 수 있습니다');
     noticeTxtEl.textContent = parts.join('  ·  ');
   }
 
-  /* ─────────────────────────────────────────
-     Feed
-  ───────────────────────────────────────── */
+  /* ── Feed ───────────────────────────────── */
   function addLiquidationToFeed(liq) {
-    state.recentLiquidations.unshift({
-      price:    liq.price,
-      side:     liq.side,
-      quantity: liq.quantity || liq.qty,
-      time:     liq.time ? (liq.time < 1e12 ? liq.time * 1000 : liq.time) : Date.now()
-    });
+    state.recentLiquidations.unshift(liq);
     if (state.recentLiquidations.length > 8) {
       state.recentLiquidations.length = 8;
     }
@@ -360,17 +351,17 @@
     var html = '';
 
     liqs.forEach(function (liq) {
-      var side    = (liq.side || '').toLowerCase();
+      var side      = (liq.side || '').toLowerCase();
       var sideLabel = side === 'long' ? 'LONG' : (side === 'short' ? 'SHORT' : side.toUpperCase());
-      var ago     = formatTimeAgo(now - liq.time);
-      var qty     = liq.quantity ? Number(liq.quantity).toLocaleString('en-US', { maximumFractionDigits: 4 }) : '--';
-      var price   = liq.price ? formatPrice(Number(liq.price)) : '--';
+      var ago       = formatTimeAgo(now - liq.time);
+      var qty       = liq.quantity ? Number(liq.quantity).toLocaleString('en-US', { maximumFractionDigits: 4 }) : '--';
+      var price     = liq.price ? formatPrice(Number(liq.price)) : '--';
 
       html += '<div class="feed-item">' +
         '<div class="feed-item-price">$' + price + '</div>' +
         '<div class="feed-item-row">' +
           '<span class="feed-item-side ' + side + '">' + sideLabel + '</span>' +
-          '<span class="feed-item-qty">' + qty + '</span>' +
+          '<span class="feed-item-qty">' + qty + ' BTC</span>' +
         '</div>' +
         '<div class="feed-item-time">' + ago + '</div>' +
       '</div>';
@@ -388,33 +379,25 @@
     return h + '시간 전';
   }
 
-  /* ─────────────────────────────────────────
-     Controls → WebSocket + Re-render
-  ───────────────────────────────────────── */
+  /* ── Controls → WebSocket + Re-render ──── */
   controls.onChange(function () {
     sendSubscribe();
     scheduleRender();
   });
 
-  /* ─────────────────────────────────────────
-     Window resize
-  ───────────────────────────────────────── */
+  /* ── Window resize ─────────────────────── */
   window.addEventListener('resize', function () {
     scheduleRender();
   });
 
-  /* ─────────────────────────────────────────
-     Periodic feed timestamp refresh (5s)
-  ───────────────────────────────────────── */
+  /* ── Periodic feed timestamp refresh ───── */
   setInterval(function () {
     if (state.recentLiquidations.length > 0) {
       renderFeed();
     }
   }, 5000);
 
-  /* ─────────────────────────────────────────
-     Bootstrap
-  ───────────────────────────────────────── */
+  /* ── Bootstrap ─────────────────────────── */
   updateDataNotice();
   connect();
 
