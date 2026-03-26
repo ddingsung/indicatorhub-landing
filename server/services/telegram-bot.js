@@ -319,6 +319,7 @@ ${reasonsList}
 
 let aggregatorRef = null;
 let symbolRef = 'BTCUSDT';
+let broadcastFn = null;
 
 function isAutoBotEnabled() {
   // Check the flag exposed by server/index.js
@@ -344,10 +345,22 @@ function scan() {
   lastSignalTime = now;
   const msg = formatSignalMessage(signal);
   sendTelegram(msg);
+
+  // Broadcast marker to chart clients
+  if (typeof broadcastFn === 'function') {
+    broadcastFn({
+      version: 1,
+      type: 'marker',
+      markerType: signal.type.toLowerCase(),
+      price: signal.price,
+      timestamp: Date.now()
+    });
+  }
+
   console.log(`[Telegram] ${signal.type} signal sent (confidence: ${signal.confidence}%)`);
 }
 
-export function startTelegramBot(aggregator, symbol = 'BTCUSDT') {
+export function startTelegramBot(aggregator, symbol = 'BTCUSDT', broadcastCallback) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
@@ -358,6 +371,7 @@ export function startTelegramBot(aggregator, symbol = 'BTCUSDT') {
 
   aggregatorRef = aggregator;
   symbolRef = symbol;
+  broadcastFn = broadcastCallback || null;
 
   console.log(`[Telegram] Bot started — scanning every ${SCAN_INTERVAL / 1000}s, min confidence ${MIN_CONFIDENCE}%`);
 

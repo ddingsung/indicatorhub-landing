@@ -269,5 +269,5 @@ server.listen(PORT, async () => {
   }
 
   // Start Telegram signal bot
-  startTelegramBot(aggregator, SYMBOL);
+  startTelegramBot(aggregator, SYMBOL, broadcast);
 });
