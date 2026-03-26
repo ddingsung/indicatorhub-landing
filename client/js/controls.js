@@ -7,7 +7,7 @@
   'use strict';
 
   function Controls() {
-    this.timeframe  = '24h';
+    this.timeframe  = '15m';
     this.chartMode  = 'heatmap';
     this.viewMode   = 'all';
     this._callbacks = [];

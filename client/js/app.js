@@ -25,7 +25,7 @@
     currentPrice:       0,
     collectingSince:    null,
     recentLiquidations: [],
-    activeTimeframe:    '24h'  // track which timeframe we last subscribed
+    activeTimeframe:    '15m'  // track which interval we last subscribed
   };
 
   /* ── DOM refs ────────────────────────────── */
@@ -214,8 +214,11 @@
   /* ── Binance REST API fallback (for static hosting) ── */
   function fetchBinanceDirect() {
     var tf = controls.timeframe;
-    var tfConfig = { '12h': { i: '5m', l: 144 }, '24h': { i: '15m', l: 96 }, '3d': { i: '1h', l: 72 }, '7d': { i: '4h', l: 42 } };
-    var cfg = tfConfig[tf] || tfConfig['24h'];
+    var tfConfig = {
+      '5m': { i: '5m', l: 500 }, '15m': { i: '15m', l: 500 }, '30m': { i: '30m', l: 500 },
+      '1h': { i: '1h', l: 500 }, '4h': { i: '4h', l: 500 }, '1d': { i: '1d', l: 365 }
+    };
+    var cfg = tfConfig[tf] || tfConfig['15m'];
     var interval = cfg.i;
     var limit = cfg.l;
     var url = 'https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=' + interval + '&limit=' + limit;
