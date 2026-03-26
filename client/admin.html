@@ -154,6 +154,20 @@
 
   <div class="result" id="result"></div>
 
+  <div style="height:1px;background:#141830;margin:16px 0;"></div>
+
+  <div class="row">
+    <label>Demo Markers</label>
+    <div class="btn-row">
+      <button class="type-btn" style="color:#00b4ff;font-size:11px" onclick="generateDemo('15m')">15m 데모</button>
+      <button class="type-btn" style="color:#00b4ff;font-size:11px" onclick="generateDemo('1h')">1H 데모</button>
+      <button class="type-btn" style="color:#00b4ff;font-size:11px" onclick="generateDemo('4h')">4H 데모</button>
+    </div>
+    <div id="demoStatus" style="font-size:10px;color:#5a6380;margin-top:6px;text-align:center;"></div>
+  </div>
+
+  <button class="send-btn" style="background:#ff1744;margin-top:8px" onclick="clearAllMarkers()">CLEAR ALL MARKERS</button>
+
   <div class="history" id="history">
     <div class="history-title">RECENT SIGNALS</div>
   </div>
@@ -242,6 +256,69 @@ async function sendSignal() {
 
   btn.disabled = false;
   btn.textContent = 'SEND SIGNAL';
+}
+
+// Demo marker generation
+async function generateDemo(interval) {
+  var statusEl = document.getElementById('demoStatus');
+  statusEl.textContent = 'Fetching candles...';
+  statusEl.style.color = '#00b4ff';
+
+  try {
+    var limit = 1000;
+    var url = 'https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=' + interval + '&limit=' + limit;
+    var res = await fetch(url);
+    var data = await res.json();
+    if (!Array.isArray(data) || data.length < 20) {
+      statusEl.textContent = 'Not enough data';
+      statusEl.style.color = '#ff1744';
+      return;
+    }
+
+    var candles = data.map(function(k) {
+      return { time: k[0], open: +k[1], high: +k[2], low: +k[3], close: +k[4] };
+    });
+
+    // Find swing highs and lows (look back/forward 3 candles)
+    var markers = [];
+    var lookback = 4;
+    var minGap = 8; // minimum candles between signals
+    var lastIdx = -minGap;
+
+    for (var i = lookback; i < candles.length - lookback; i++) {
+      if (i - lastIdx < minGap) continue;
+
+      var c = candles[i];
+      var isHigh = true, isLow = true;
+
+      for (var j = 1; j <= lookback; j++) {
+        if (candles[i - j].high >= c.high || candles[i + j].high >= c.high) isHigh = false;
+        if (candles[i - j].low <= c.low || candles[i + j].low <= c.low) isLow = false;
+      }
+
+      if (isHigh) {
+        markers.push({ type: 'sell', price: c.high, time: c.time });
+        lastIdx = i;
+      } else if (isLow) {
+        markers.push({ type: 'buy', price: c.low, time: c.time });
+        lastIdx = i;
+      }
+    }
+
+    // Save to localStorage
+    localStorage.setItem('s7_markers', JSON.stringify(markers));
+    statusEl.textContent = markers.length + ' markers generated (' + interval + '). Refresh chart to see.';
+    statusEl.style.color = '#00ff41';
+  } catch(e) {
+    statusEl.textContent = 'Error: ' + e.message;
+    statusEl.style.color = '#ff1744';
+  }
+}
+
+function clearAllMarkers() {
+  localStorage.removeItem('s7_markers');
+  document.getElementById('demoStatus').textContent = 'All markers cleared.';
+  document.getElementById('demoStatus').style.color = '#ffab00';
 }
 
 function addHistory(type, conf) {
