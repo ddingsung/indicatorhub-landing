@@ -265,10 +265,22 @@
     ctx.rect(drawX, 0, drawW, drawH);
     ctx.clip();
 
+    var timeStart = coord.timeStart, timeEnd = coord.timeEnd;
+    var timeRange = timeEnd - timeStart;
+
     for (var i = 0; i < manualSignals.length; i++) {
       var sig = manualSignals[i];
       var priceY = drawH * (1 - (sig.price - priceLow) / priceRange);
-      var cx = sig.x != null ? sig.x : drawX + drawW / 2;
+
+      // Compute x from time, fallback to stored x or center
+      var cx;
+      if (sig.time != null && timeRange > 0) {
+        cx = drawX + (sig.time - timeStart) / timeRange * drawW;
+      } else if (sig.x != null) {
+        cx = sig.x;
+      } else {
+        cx = drawX + drawW / 2;
+      }
 
       if (cx < drawX + 20 || cx > drawX + drawW - 20) continue;
 

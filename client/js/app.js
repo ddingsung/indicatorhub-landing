@@ -113,8 +113,12 @@
       candleInterval = state.candles[1].time - state.candles[0].time;
     }
 
-    var timeStart = state.candles[0].time;
-    var timeEnd   = state.candles[state.candles.length - 1].time + candleInterval;
+    var dataTimeStart = state.candles[0].time;
+    var dataTimeEnd   = state.candles[state.candles.length - 1].time + candleInterval;
+
+    // Apply viewport pan offset
+    var timeStart = viewport.timeStart != null ? viewport.timeStart : dataTimeStart;
+    var timeEnd   = viewport.timeEnd   != null ? viewport.timeEnd   : dataTimeEnd;
 
     // Price range from candles within the visible time window
     var dataPriceLow = Infinity, dataPriceHigh = -Infinity;
@@ -315,15 +319,13 @@
 
   function handleMarker(msg) {
     if (!msg.markerType || !msg.price) return;
-    // Find x position: use last candle's x position (current price)
-    var coord = lastCoord;
-    var cx = coord ? coord.drawX + coord.drawW - 30 : 200;
 
     manualMarkers.push({
       type: msg.markerType === 'buy' ? 'buy' : 'sell',
       price: Number(msg.price),
-      x: cx
+      time: msg.timestamp || Date.now()
     });
+    saveMarkers();
     scheduleRender();
   }
 
@@ -741,8 +743,91 @@
     priceTagEl.style.top = y + 'px';
   }
 
+  /* ═══════════════════════════════════════════
+     Horizontal Pan (drag left/right)
+  ═══════════════════════════════════════════ */
+  var viewport = { timeStart: null, timeEnd: null, isDragging: false, dragStartX: 0, dragTimeStart: 0, dragTimeEnd: 0 };
+
+  chartCont.addEventListener('mousedown', function (e) {
+    if (e.button !== 0 || markerMode) return;
+    var coord = lastCoord;
+    if (!coord) return;
+
+    // Materialize viewport
+    if (viewport.timeStart == null) viewport.timeStart = coord.timeStart;
+    if (viewport.timeEnd == null) viewport.timeEnd = coord.timeEnd;
+
+    viewport.isDragging = true;
+    viewport.dragStartX = e.clientX;
+    viewport.dragTimeStart = viewport.timeStart;
+    viewport.dragTimeEnd = viewport.timeEnd;
+    chartCont.style.cursor = 'grabbing';
+    hideCrosshair();
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', function (e) {
+    if (!viewport.isDragging) return;
+    var rect = chartCont.getBoundingClientRect();
+    var drawW = rect.width - AXIS_LEFT - AXIS_RIGHT;
+    if (drawW <= 0) return;
+
+    var dx = e.clientX - viewport.dragStartX;
+    var tRange = viewport.dragTimeEnd - viewport.dragTimeStart;
+    var tShift = -dx / drawW * tRange;
+    viewport.timeStart = viewport.dragTimeStart + tShift;
+    viewport.timeEnd = viewport.dragTimeEnd + tShift;
+    scheduleRender();
+  });
+
+  window.addEventListener('mouseup', function () {
+    if (viewport.isDragging) {
+      viewport.isDragging = false;
+      chartCont.style.cursor = '';
+    }
+  });
+
+  // Double-click to reset view
+  chartCont.addEventListener('dblclick', function () {
+    viewport.timeStart = null;
+    viewport.timeEnd = null;
+    scheduleRender();
+  });
+
+  // Touch pan
+  chartCont.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1 || markerMode) return;
+    var coord = lastCoord;
+    if (!coord) return;
+    if (viewport.timeStart == null) viewport.timeStart = coord.timeStart;
+    if (viewport.timeEnd == null) viewport.timeEnd = coord.timeEnd;
+
+    viewport.isDragging = true;
+    viewport.dragStartX = e.touches[0].clientX;
+    viewport.dragTimeStart = viewport.timeStart;
+    viewport.dragTimeEnd = viewport.timeEnd;
+  }, { passive: true });
+
+  chartCont.addEventListener('touchmove', function (e) {
+    if (!viewport.isDragging || e.touches.length !== 1) return;
+    var rect = chartCont.getBoundingClientRect();
+    var drawW = rect.width - AXIS_LEFT - AXIS_RIGHT;
+    if (drawW <= 0) return;
+
+    var dx = e.touches[0].clientX - viewport.dragStartX;
+    var tRange = viewport.dragTimeEnd - viewport.dragTimeStart;
+    viewport.timeStart = viewport.dragTimeStart - dx / drawW * tRange;
+    viewport.timeEnd = viewport.dragTimeEnd - dx / drawW * tRange;
+    scheduleRender();
+  }, { passive: true });
+
+  chartCont.addEventListener('touchend', function () {
+    viewport.isDragging = false;
+  });
+
   // Mousemove — crosshair
   chartCont.addEventListener('mousemove', function (e) {
+    if (viewport.isDragging) return;
     drawCrosshair(e.clientX, e.clientY);
   });
 
@@ -771,8 +856,18 @@
   /* ═══════════════════════════════════════════
      Manual Markers
   ═══════════════════════════════════════════ */
-  var manualMarkers = [];
+  // Load saved markers from localStorage
+  var manualMarkers = (function () {
+    try {
+      var saved = localStorage.getItem('s7_markers');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
+  })();
   var markerMode = null; // null | 'buy' | 'sell'
+
+  function saveMarkers() {
+    try { localStorage.setItem('s7_markers', JSON.stringify(manualMarkers)); } catch (e) {}
+  }
 
   var addBuyBtn = document.getElementById('addBuyBtn');
   var addSellBtn = document.getElementById('addSellBtn');
@@ -798,6 +893,7 @@
   if (clearMarkersBtn) clearMarkersBtn.addEventListener('click', function (e) {
     e.stopPropagation();
     manualMarkers = [];
+    saveMarkers();
     if (menuDropdown) menuDropdown.classList.remove('open');
     scheduleRender();
   });
@@ -813,13 +909,16 @@
     if (x < coord.drawX || x > coord.drawX + coord.drawW || y < 0 || y > coord.drawH) return;
 
     var price = coord.priceHigh - (y / coord.drawH) * (coord.priceHigh - coord.priceLow);
+    var timeFrac = (x - coord.drawX) / coord.drawW;
+    var time = coord.timeStart + timeFrac * (coord.timeEnd - coord.timeStart);
 
     manualMarkers.push({
       type: markerMode,
       price: price,
-      x: x
+      time: time
     });
 
+    saveMarkers();
     scheduleRender();
   });
 
