@@ -264,6 +264,8 @@ function analyzeAndSignal(candles) {
   const confidence = Math.floor(Math.random() * 6) + 90; // always 90-95%
   const type = buyScore > sellScore ? 'BUY' : 'SELL';
 
+  if (confidence < MIN_CONFIDENCE) return null;
+
   return {
     type,
     price,
@@ -327,35 +329,26 @@ function isAutoBotEnabled() {
 }
 
 async function scan() {
-  if (!isAutoBotEnabled()) {
-    console.log('[Telegram] Auto-bot disabled, skipping scan');
-    return;
-  }
-
-  console.log('[Telegram] Scanning...');
+  if (!isAutoBotEnabled()) return;
 
   // Fetch candles directly from Binance
   let candles;
   try {
     const { fetchCandles } = await import('./candle-feed.js');
     candles = await fetchCandles(symbolRef, '15m', 100);
-    console.log('[Telegram] Fetched', candles.length, 'candles');
   } catch (e) {
     console.warn('[Telegram] Failed to fetch candles:', e.message);
     return;
   }
-  if (!candles || candles.length < 30) {
-    console.warn('[Telegram] Not enough candles:', candles ? candles.length : 0);
-    return;
-  }
+  if (!candles || candles.length < 30) return;
 
   const signal = analyzeAndSignal(candles);
-  if (!signal) {
-    console.log('[Telegram] No signal generated');
-    return;
-  }
+  if (!signal) return;
 
-  lastSignalTime = Date.now();
+  const now = Date.now();
+  if (now - lastSignalTime < COOLDOWN) return;
+
+  lastSignalTime = now;
   const msg = formatSignalMessage(signal);
   sendTelegram(msg);
 
