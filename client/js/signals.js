@@ -268,6 +268,11 @@
     var timeRange = timeEnd - timeStart;
     var OFFSET = 28;
 
+    // Calculate candle column width for centering
+    var candleInterval = (candles && candles.length > 1) ? candles[1].time - candles[0].time : 0;
+    var colW = timeRange > 0 ? drawW * candleInterval / timeRange : 0;
+    var halfCol = colW / 2;
+
     for (var i = 0; i < manualSignals.length; i++) {
       var sig = manualSignals[i];
       var isBuy = sig.type === 'buy';
@@ -290,7 +295,7 @@
       var priceY = drawH * (1 - (snapPrice - priceLow) / priceRange);
       var cx;
       if (snapTime != null && timeRange > 0) {
-        cx = drawX + (snapTime - timeStart) / timeRange * drawW;
+        cx = drawX + (snapTime - timeStart) / timeRange * drawW + halfCol;
       } else {
         cx = drawX + drawW / 2;
       }
