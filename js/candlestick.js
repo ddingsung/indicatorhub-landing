@@ -1,109 +1,69 @@
-/* ═══════════════════════════════════════════
-   CandlestickRenderer
-   Draws OHLC candlesticks on top of the heatmap canvas.
-   ═══════════════════════════════════════════ */
-
+/* CandlestickRenderer — draws OHLC candles on shared coordinate space */
 (function () {
   'use strict';
 
-  var AXIS_LEFT   = 70;
-  var AXIS_BOTTOM = 28;
+  var COLOR_BULL = '#26a69a';
+  var COLOR_BEAR = '#ef5350';
 
-  var COLOR_BULL = '#00ff87'; // bullish / green
-  var COLOR_BEAR = '#ff3d71'; // bearish / red
-
-  /**
-   * CandlestickRenderer
-   * @param {HTMLCanvasElement} canvas - Same canvas as HeatmapRenderer
-   */
-  function CandlestickRenderer(canvas) {
-    this.canvas = canvas;
-    this.ctx    = canvas.getContext('2d');
-  }
+  function CandlestickRenderer() {}
 
   /**
-   * Draw candlesticks over the existing heatmap.
-   *
-   * @param {Array} candles - Array of candle objects:
-   *   { open, high, low, close, time (unix ms or s) }
-   * @param {Object} opts
-   *   - priceLow:  number  (bottom of price viewport)
-   *   - priceHigh: number  (top of price viewport)
-   *   - W:         number  (total canvas CSS width)
-   *   - H:         number  (total canvas CSS height)
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {Array} candles - [{ open, high, low, close, time }]
+   * @param {Object} coord  - { drawX, drawW, drawH, timeStart, timeEnd, priceLow, priceHigh }
    */
-  CandlestickRenderer.prototype.render = function (candles, opts) {
+  CandlestickRenderer.prototype.render = function (ctx, candles, coord) {
     if (!candles || candles.length === 0) return;
 
-    opts = opts || {};
-    var priceLow  = opts.priceLow;
-    var priceHigh = opts.priceHigh;
-    var W         = opts.W;
-    var H         = opts.H;
+    var drawX = coord.drawX, drawW = coord.drawW, drawH = coord.drawH;
+    var timeStart = coord.timeStart, timeEnd = coord.timeEnd;
+    var priceLow = coord.priceLow, priceHigh = coord.priceHigh;
+    var timeRange  = timeEnd - timeStart;
+    var priceRange = priceHigh - priceLow;
+    if (timeRange <= 0 || priceRange <= 0) return;
 
-    if (priceLow == null || priceHigh == null || priceLow >= priceHigh) return;
+    // Candle width based on interval
+    var interval = candles.length > 1 ? candles[1].time - candles[0].time : timeRange;
+    var colW  = Math.max(1, drawW * interval / timeRange);
+    var bodyW = Math.max(1, colW * 0.6);
 
-    var ctx    = this.ctx;
-    var drawX  = AXIS_LEFT;
-    var drawW  = W - AXIS_LEFT - 60; // AXIS_RIGHT = 60
-    var drawH  = H - AXIS_BOTTOM;
-
-    var nCandles   = candles.length;
-    var candleW    = drawW / nCandles;
-    var bodyMinW   = Math.max(1, candleW * 0.6);
-    var bodyOffset = (candleW - bodyMinW) / 2;
-
-    /**
-     * Map a price value to a Y pixel coordinate.
-     * Higher price → smaller Y (top of canvas).
-     */
-    function priceToY(price) {
-      var frac = (price - priceLow) / (priceHigh - priceLow);
-      return drawH * (1 - frac);
+    function toY(price) {
+      return drawH * (1 - (price - priceLow) / priceRange);
     }
 
-    candles.forEach(function (candle, i) {
-      var open  = candle.open;
-      var high  = candle.high;
-      var low   = candle.low;
-      var close = candle.close;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(drawX, 0, drawW, drawH);
+    ctx.clip();
 
-      var isBull = close >= open;
+    for (var i = 0; i < candles.length; i++) {
+      var c = candles[i];
+      var cx = drawX + (c.time - timeStart) / timeRange * drawW + colW / 2;
+
+      // Skip if outside
+      if (cx + colW < drawX || cx - colW > drawX + drawW) continue;
+
+      var isBull = c.close >= c.open;
       var color  = isBull ? COLOR_BULL : COLOR_BEAR;
 
-      var x = drawX + i * candleW;
-
       // Wick
-      var wickX  = x + candleW / 2;
-      var highY  = priceToY(high);
-      var lowY   = priceToY(low);
-
-      ctx.save();
       ctx.strokeStyle = color;
       ctx.lineWidth   = 1;
       ctx.beginPath();
-      ctx.moveTo(Math.round(wickX) + 0.5, Math.round(highY));
-      ctx.lineTo(Math.round(wickX) + 0.5, Math.round(lowY));
+      ctx.moveTo(Math.round(cx) + 0.5, Math.round(toY(c.high)));
+      ctx.lineTo(Math.round(cx) + 0.5, Math.round(toY(c.low)));
       ctx.stroke();
 
       // Body
-      var bodyTop    = priceToY(Math.max(open, close));
-      var bodyBottom = priceToY(Math.min(open, close));
-      var bodyH      = Math.max(1, bodyBottom - bodyTop);
-
+      var bodyTop = toY(Math.max(c.open, c.close));
+      var bodyBot = toY(Math.min(c.open, c.close));
+      var bodyH   = Math.max(1, bodyBot - bodyTop);
       ctx.fillStyle = color;
-      ctx.fillRect(
-        Math.floor(x + bodyOffset),
-        Math.floor(bodyTop),
-        Math.ceil(bodyMinW),
-        Math.ceil(bodyH)
-      );
+      ctx.fillRect(Math.floor(cx - bodyW / 2), Math.floor(bodyTop), Math.ceil(bodyW), Math.ceil(bodyH));
+    }
 
-      ctx.restore();
-    });
+    ctx.restore();
   };
 
-  /* ── expose globally ─────────────────────────────────────────────── */
   window.CandlestickRenderer = CandlestickRenderer;
-
 }());

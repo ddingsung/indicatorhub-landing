@@ -3,94 +3,516 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IndicatorHub — 청산 히트맵</title>
+<title>SIGNAL-7 // CLASSIFIED TERMINAL</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
 
-<header class="header">
-  <div class="header-left">
-    <a class="logo" href="/">INDICATOR<span>HUB</span></a>
-    <div class="divider"></div>
-    <h1 class="page-title">청산 히트맵</h1>
-  </div>
-  <div class="header-right">
-    <div class="symbol-badge">BTCUSDT</div>
-    <div class="price-display">
-      <span class="price" id="currentPrice">--</span>
+<!-- ============================================================
+     ENTRY GATE — Classified Access Terminal
+     ============================================================ -->
+<div id="entryGate" class="gate">
+  <!-- Scanline overlay -->
+  <div class="gate-scanlines"></div>
+
+  <!-- Matrix rain canvas background -->
+  <canvas id="matrixCanvas" class="gate-matrix"></canvas>
+
+  <!-- Vignette -->
+  <div class="gate-vignette"></div>
+
+  <!-- Main content -->
+  <div class="gate-content">
+    <!-- Top status bar -->
+    <div class="gate-status-bar">
+      <span class="gate-status-item blink-slow">SEC-PROTOCOL v7.4.1</span>
+      <span class="gate-status-item">NODE: <span class="text-cyan">KR-EAST-14</span></span>
+      <span class="gate-status-item">ENCRYPT: <span class="text-green">AES-256</span></span>
+      <span class="gate-status-item blink-slow">REC</span>
     </div>
-    <div class="status-dot" id="statusDot" title="연결 상태"></div>
-  </div>
-</header>
 
-<div class="controls">
-  <div class="control-group">
-    <span class="control-label">시간대</span>
-    <div class="btn-group" id="timeframeBtns">
-      <button class="btn-ctrl" data-tf="5m">5m</button>
-      <button class="btn-ctrl" data-tf="15m">15m</button>
-      <button class="btn-ctrl active" data-tf="1h">1h</button>
-      <button class="btn-ctrl" data-tf="4h">4h</button>
-      <button class="btn-ctrl" data-tf="1d">1d</button>
+    <!-- Central terminal block -->
+    <div class="gate-terminal">
+      <!-- Corner brackets -->
+      <div class="hud-corner hud-tl"></div>
+      <div class="hud-corner hud-tr"></div>
+      <div class="hud-corner hud-bl"></div>
+      <div class="hud-corner hud-br"></div>
+
+      <!-- Glitch header -->
+      <div class="gate-header">
+        <div class="gate-logo-line"></div>
+        <h1 class="gate-title glitch-text" data-text="SIGNAL-7">SIGNAL-7</h1>
+        <div class="gate-subtitle">CLASSIFIED INTELLIGENCE TERMINAL</div>
+        <div class="gate-logo-line"></div>
+      </div>
+
+      <!-- Warning text -->
+      <div class="gate-warning">
+        <span class="warning-icon">&#9888;</span>
+        UNAUTHORIZED ACCESS WILL BE TRACED AND PROSECUTED
+      </div>
+
+      <!-- Terminal output -->
+      <div class="gate-terminal-output" id="terminalOutput">
+        <div class="term-line">[SYS] Initializing secure connection...</div>
+        <div class="term-line">[SYS] Encryption handshake complete.</div>
+        <div class="term-line">[SYS] Awaiting authentication credentials...</div>
+        <div class="term-line term-prompt">&gt; ENTER ACCESS CODE: <span class="term-cursor">_</span></div>
+      </div>
+
+      <!-- Code input -->
+      <div class="gate-input-wrap">
+        <div class="gate-input-label">ACCESS CODE</div>
+        <div class="gate-input-row">
+          <span class="gate-prompt">&gt;&gt;</span>
+          <input type="text" id="gateInput" class="gate-input" maxlength="10"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                 placeholder="_ _ _ _ _ _">
+          <button id="gateSubmit" class="gate-submit">AUTHENTICATE</button>
+        </div>
+        <div class="gate-error" id="gateError">
+          <span class="warning-icon">&#10006;</span>
+          ACCESS DENIED — INVALID CREDENTIALS
+        </div>
+      </div>
+
+      <!-- Fingerprint hint -->
+      <div class="gate-footer-info">
+        <span class="text-muted-bright">CLEARANCE LEVEL: </span>
+        <span class="text-red blink-slow">RESTRICTED</span>
+        <span class="gate-separator">|</span>
+        <span class="text-muted-bright">SESSION: </span>
+        <span class="text-cyan" id="sessionId">--</span>
+      </div>
     </div>
-  </div>
 
-  <div class="control-group">
-    <span class="control-label">차트 모드</span>
-    <div class="btn-group" id="chartModeBtns">
-      <button class="btn-ctrl active" data-mode="heatmap">히트맵</button>
-      <button class="btn-ctrl" data-mode="overlay">캔들+히트맵</button>
+    <!-- Bottom status -->
+    <div class="gate-bottom-status">
+      <span class="text-muted-dim">SIGNAL-7 DEFENSE SYSTEMS &copy; 2026</span>
+      <span class="text-muted-dim">ALL SESSIONS MONITORED AND RECORDED</span>
     </div>
-  </div>
-
-  <div class="control-group">
-    <span class="control-label">뷰 모드</span>
-    <div class="btn-group" id="viewModeBtns">
-      <button class="btn-ctrl active" data-view="all">전체</button>
-      <button class="btn-ctrl" data-view="long">롱</button>
-      <button class="btn-ctrl" data-view="short">숏</button>
-    </div>
-  </div>
-
-  <div class="control-spacer"></div>
-
-  <div class="color-legend" id="colorLegend">
-    <span class="legend-label">약함</span>
-    <div class="legend-gradient" id="legendGradient"></div>
-    <span class="legend-label">강함</span>
   </div>
 </div>
 
-<main class="main">
-  <div class="chart-container" id="chartContainer">
-    <canvas id="mainCanvas"></canvas>
-    <div class="y-axis" id="yAxis"></div>
-    <div class="x-axis" id="xAxis"></div>
-  </div>
-</main>
+<!-- ============================================================
+     MAIN DASHBOARD — Intelligence Terminal
+     ============================================================ -->
+<div class="page" id="mainDashboard" style="display:none;">
 
-<div class="feed-panel" id="feedPanel">
-  <div class="feed-header">
-    <span class="feed-title">최근 청산</span>
-    <span class="feed-subtitle">실시간</span>
+  <!-- Persistent scanline overlay -->
+  <div class="dash-scanlines"></div>
+
+  <!-- Matrix rain background for dashboard -->
+  <canvas id="dashMatrixCanvas" class="dash-matrix-bg"></canvas>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-row">
+      <a class="logo" href="/">
+        <span class="logo-bracket">[</span>
+        <span class="logo-text glitch-text-sm" data-text="SIGNAL-7">SIGNAL-7</span>
+        <span class="logo-bracket">]</span>
+        <span class="logo-sub">TERMINAL</span>
+      </a>
+      <div class="header-price">
+        <div class="header-pair-wrap">
+          <span class="header-classification">CLASSIFIED</span>
+          <span class="symbol-label">BTC / USDT</span>
+        </div>
+        <div class="price-wrap">
+          <span class="price" id="currentPrice">--</span>
+          <div class="status-dot" id="statusDot" title="Connection Status"></div>
+        </div>
+        <div class="header-sys-info">
+          <span class="sys-tag">LIVE</span>
+          <span class="sys-tag tag-dim">BINANCE</span>
+          <span class="sys-tag tag-dim">WS-FEED</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <div class="controls-card">
+    <div class="hud-corner hud-tl sm"></div>
+    <div class="hud-corner hud-tr sm"></div>
+    <div class="hud-corner hud-bl sm"></div>
+    <div class="hud-corner hud-br sm"></div>
+
+    <div class="control-group">
+      <span class="control-label">TIMEFRAME</span>
+      <div class="btn-group" id="timeframeBtns">
+        <button class="btn-ctrl" data-tf="12h">12H</button>
+        <button class="btn-ctrl active" data-tf="24h">24H</button>
+      </div>
+    </div>
+
+    <div class="control-spacer"></div>
+
+    <div class="control-indicators">
+      <span class="indicator-label">SIG</span>
+      <span class="indicator-dot dot-green"></span>
+      <span class="indicator-label">NET</span>
+      <span class="indicator-dot dot-cyan"></span>
+      <span class="indicator-label">ENC</span>
+      <span class="indicator-dot dot-green"></span>
+    </div>
+
+    <!-- Menu button -->
+    <div class="menu-wrap">
+      <button class="menu-btn" id="menuBtn" title="Tools">
+        <span class="menu-dots">&#8942;</span>
+      </button>
+      <div class="menu-dropdown" id="menuDropdown">
+        <div class="menu-section">INDICATORS</div>
+        <button class="menu-item menu-toggle" id="toggleVpvr" data-indicator="vpvr">VPVR <span class="toggle-state on">[ON]</span></button>
+        <button class="menu-item menu-toggle" id="toggleEma" data-indicator="ema">EMA 9/21 <span class="toggle-state off">[OFF]</span></button>
+        <button class="menu-item menu-toggle" id="toggleBollinger" data-indicator="bollinger">BOLLINGER <span class="toggle-state off">[OFF]</span></button>
+        <button class="menu-item menu-toggle" id="toggleVolume" data-indicator="volume">VOLUME <span class="toggle-state off">[OFF]</span></button>
+        <button class="menu-item menu-toggle" id="toggleRsi" data-indicator="rsi">RSI 14 <span class="toggle-state off">[OFF]</span></button>
+        <button class="menu-item menu-toggle" id="toggleMacd" data-indicator="macd">MACD <span class="toggle-state off">[OFF]</span></button>
+        <div class="menu-divider"></div>
+        <div class="menu-section">MANUAL MARKERS</div>
+        <button class="menu-item btn-buy-mode" id="addBuyBtn">[+] BUY SIGNAL</button>
+        <button class="menu-item btn-sell-mode" id="addSellBtn">[+] SELL SIGNAL</button>
+        <div class="menu-divider"></div>
+        <button class="menu-item btn-clear" id="clearMarkersBtn">[x] CLEAR ALL</button>
+      </div>
+    </div>
   </div>
-  <div class="feed-list" id="feedList">
-    <div class="feed-empty">청산 데이터 수신 대기 중...</div>
+
+  <!-- Chart -->
+  <div class="chart-card">
+    <div class="hud-corner hud-tl"></div>
+    <div class="hud-corner hud-tr"></div>
+    <div class="hud-corner hud-bl"></div>
+    <div class="hud-corner hud-br"></div>
+
+    <div class="chart-container" id="chartContainer">
+      <canvas id="mainCanvas"></canvas>
+      <canvas id="overlayCanvas"></canvas>
+      <div class="y-axis" id="yAxis"></div>
+      <div class="x-axis" id="xAxis"></div>
+      <div class="price-tag" id="priceTag"></div>
+      <div class="crosshair-label-x" id="crosshairX"></div>
+      <div class="crosshair-label-y" id="crosshairY"></div>
+    </div>
+    <div class="indicator-panel" id="rsiPanel" style="display:none;">
+      <canvas id="rsiCanvas"></canvas>
+    </div>
+    <div class="indicator-panel" id="macdPanel" style="display:none;">
+      <canvas id="macdCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Analysis Panel -->
+  <div class="analysis-panel" id="analysisPanel">
+    <div class="analysis-header">
+      <span class="analysis-title">[SYS] REAL-TIME ANALYSIS ENGINE</span>
+      <span class="analysis-status blink-slow">ACTIVE</span>
+    </div>
+    <div class="analysis-body">
+      <div class="analysis-log" id="analysisLog">
+        <!-- Terminal lines will be injected here -->
+      </div>
+      <div class="analysis-matrix" id="analysisMatrix">
+        <!-- Signal scores will be injected here -->
+      </div>
+      <div class="analysis-patterns" id="analysisPatterns">
+        <!-- Pattern cards will be injected here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-text" id="dataNotice">
+    <span class="status-prefix">[SYS]</span>
+    <span id="noticeText">Establishing secure data feed...</span>
   </div>
 </div>
 
-<div class="data-notice" id="dataNotice">
-  <span class="notice-icon">ℹ</span>
-  <span id="noticeText">서버에 연결하는 중...</span>
-</div>
+<!-- ============================================================
+     GATE LOGIC (inline, isolated from app.js IIFE)
+     ============================================================ -->
+<script>
+(function() {
+  'use strict';
 
-<script src="js/heatmap.js"></script>
+  var ACCESS_CODE = 'ALPHA7';
+  var gate = document.getElementById('entryGate');
+  var dashboard = document.getElementById('mainDashboard');
+  var gateInput = document.getElementById('gateInput');
+  var gateSubmit = document.getElementById('gateSubmit');
+  var gateError = document.getElementById('gateError');
+  var sessionEl = document.getElementById('sessionId');
+  var matrixCanvas = document.getElementById('matrixCanvas');
+
+  // Generate fake session ID
+  function genSessionId() {
+    var chars = 'ABCDEF0123456789';
+    var id = '';
+    for (var i = 0; i < 8; i++) {
+      if (i === 4) id += '-';
+      id += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return id;
+  }
+  if (sessionEl) sessionEl.textContent = genSessionId();
+
+  // ── Particle Network ─────────────────────
+  var mCtx = matrixCanvas.getContext('2d');
+  var particles = [];
+  var PARTICLE_COUNT = 80;
+  var CONNECT_DIST = 140;
+  var mouseX = -9999, mouseY = -9999;
+
+  function initParticles() {
+    matrixCanvas.width = window.innerWidth;
+    matrixCanvas.height = window.innerHeight;
+    particles = [];
+    for (var i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * matrixCanvas.width,
+        y: Math.random() * matrixCanvas.height,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        r: Math.random() * 1.5 + 0.5
+      });
+    }
+  }
+  initParticles();
+  window.addEventListener('resize', initParticles);
+  gate.addEventListener('mousemove', function(e) { mouseX = e.clientX; mouseY = e.clientY; });
+  gate.addEventListener('mouseleave', function() { mouseX = -9999; mouseY = -9999; });
+
+  function drawParticles() {
+    mCtx.clearRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+
+    // Update positions
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0 || p.x > matrixCanvas.width) p.vx *= -1;
+      if (p.y < 0 || p.y > matrixCanvas.height) p.vy *= -1;
+
+      // Subtle pull toward mouse
+      var dx = mouseX - p.x, dy = mouseY - p.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 200 && dist > 0) {
+        p.vx += dx / dist * 0.02;
+        p.vy += dy / dist * 0.02;
+        // Limit speed
+        var spd = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (spd > 1) { p.vx /= spd; p.vy /= spd; }
+      }
+    }
+
+    // Draw connections
+    for (var i = 0; i < particles.length; i++) {
+      for (var j = i + 1; j < particles.length; j++) {
+        var dx = particles[i].x - particles[j].x;
+        var dy = particles[i].y - particles[j].y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d < CONNECT_DIST) {
+          var alpha = (1 - d / CONNECT_DIST) * 0.15;
+          mCtx.strokeStyle = 'rgba(0, 180, 255, ' + alpha.toFixed(3) + ')';
+          mCtx.lineWidth = 0.5;
+          mCtx.beginPath();
+          mCtx.moveTo(particles[i].x, particles[i].y);
+          mCtx.lineTo(particles[j].x, particles[j].y);
+          mCtx.stroke();
+        }
+      }
+    }
+
+    // Draw mouse connections
+    if (mouseX > 0) {
+      for (var i = 0; i < particles.length; i++) {
+        var dx = mouseX - particles[i].x;
+        var dy = mouseY - particles[i].y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 180) {
+          var alpha = (1 - d / 180) * 0.25;
+          mCtx.strokeStyle = 'rgba(0, 255, 180, ' + alpha.toFixed(3) + ')';
+          mCtx.lineWidth = 0.6;
+          mCtx.beginPath();
+          mCtx.moveTo(particles[i].x, particles[i].y);
+          mCtx.lineTo(mouseX, mouseY);
+          mCtx.stroke();
+        }
+      }
+    }
+
+    // Draw particles
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      mCtx.beginPath();
+      mCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      mCtx.fillStyle = 'rgba(0, 180, 255, 0.5)';
+      mCtx.fill();
+    }
+  }
+
+  var matrixInterval = setInterval(drawParticles, 30);
+
+  // ── Terminal typing effect ────────────────
+  var termOutput = document.getElementById('terminalOutput');
+  var termLines = termOutput ? termOutput.querySelectorAll('.term-line') : [];
+  if (termLines.length > 0) {
+    for (var i = 0; i < termLines.length; i++) {
+      termLines[i].style.opacity = '0';
+      termLines[i].style.transform = 'translateX(-10px)';
+    }
+    termLines.forEach(function(line, idx) {
+      setTimeout(function() {
+        line.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        line.style.opacity = '1';
+        line.style.transform = 'translateX(0)';
+      }, 400 + idx * 600);
+    });
+  }
+
+  // ── Authentication ────────────────────────
+  function showError() {
+    gateError.classList.add('visible');
+    gate.classList.add('shake');
+    // Red flash
+    gate.style.boxShadow = 'inset 0 0 200px rgba(255,0,0,0.15)';
+    setTimeout(function() {
+      gate.classList.remove('shake');
+      gate.style.boxShadow = '';
+    }, 600);
+    setTimeout(function() {
+      gateError.classList.remove('visible');
+    }, 3000);
+  }
+
+  function authenticate() {
+    var code = gateInput.value.trim().toUpperCase();
+    if (code === ACCESS_CODE) {
+      // Success — dramatic reveal
+      clearInterval(matrixInterval);
+
+      // Flash green
+      gate.style.boxShadow = 'inset 0 0 300px rgba(0,255,65,0.2)';
+
+      // Replace terminal output with success messages
+      if (termOutput) {
+        var successHTML = '<div class="term-line text-green">[AUTH] Code accepted.</div>' +
+          '<div class="term-line text-green">[AUTH] Clearance level: ALPHA</div>' +
+          '<div class="term-line text-green">[SYS] Decrypting intelligence feed...</div>' +
+          '<div class="term-line text-cyan">[SYS] Loading SIGNAL-7 terminal...</div>';
+        termOutput.innerHTML = successHTML;
+        var newLines = termOutput.querySelectorAll('.term-line');
+        newLines.forEach(function(line, idx) {
+          line.style.opacity = '0';
+          setTimeout(function() {
+            line.style.transition = 'opacity 0.2s ease';
+            line.style.opacity = '1';
+          }, idx * 200);
+        });
+      }
+
+      // Disable input
+      gateInput.disabled = true;
+      gateSubmit.disabled = true;
+      gateInput.style.borderColor = '#00ff41';
+      gateInput.style.color = '#00ff41';
+      gateInput.style.textShadow = '0 0 10px rgba(0,255,65,0.5)';
+
+      // After brief pause, do the reveal
+      setTimeout(function() {
+        // Dramatic fade/glitch out
+        gate.classList.add('gate-exit');
+
+        setTimeout(function() {
+          gate.style.display = 'none';
+          dashboard.style.display = '';
+          dashboard.classList.add('dashboard-enter');
+
+          // Initialize dashboard matrix rain
+          initDashMatrix();
+
+          setTimeout(function() {
+            dashboard.classList.remove('dashboard-enter');
+          }, 1200);
+        }, 800);
+      }, 1200);
+
+    } else {
+      showError();
+      gateInput.value = '';
+      gateInput.focus();
+    }
+  }
+
+  gateSubmit.addEventListener('click', authenticate);
+  gateInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') authenticate();
+  });
+
+  // Auto-focus
+  setTimeout(function() { gateInput.focus(); }, 1500);
+
+  // ── Dashboard matrix rain (subtle) ────────
+  var dashCanvas = document.getElementById('dashMatrixCanvas');
+  var dashCtx = dashCanvas ? dashCanvas.getContext('2d') : null;
+  var dashColumns, dashDrops;
+
+  function initDashMatrix() {
+    if (!dashCanvas) return;
+    dashCanvas.width = window.innerWidth;
+    dashCanvas.height = window.innerHeight;
+    dashColumns = Math.floor(dashCanvas.width / 20);
+    dashDrops = [];
+    for (var i = 0; i < dashColumns; i++) {
+      dashDrops[i] = Math.random() * -50;
+    }
+    requestAnimationFrame(drawDashMatrix);
+  }
+
+  function drawDashMatrix() {
+    if (!dashCtx || dashboard.style.display === 'none') return;
+    dashCtx.fillStyle = 'rgba(5, 5, 15, 0.06)';
+    dashCtx.fillRect(0, 0, dashCanvas.width, dashCanvas.height);
+    dashCtx.fillStyle = 'rgba(0, 180, 255, 0.04)';
+    dashCtx.font = '12px "JetBrains Mono", monospace';
+
+    for (var i = 0; i < dashColumns; i++) {
+      var char = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+      var x = i * 20;
+      var y = dashDrops[i] * 20;
+      if (y > 0) dashCtx.fillText(char, x, y);
+      if (y > dashCanvas.height && Math.random() > 0.98) dashDrops[i] = 0;
+      dashDrops[i] += 0.5;
+    }
+    requestAnimationFrame(drawDashMatrix);
+  }
+
+  window.addEventListener('resize', function() {
+    if (dashboard.style.display !== 'none') initDashMatrix();
+  });
+
+})();
+</script>
+
+<!-- App Scripts -->
+<script src="js/vpvr.js"></script>
+<script src="js/signals.js"></script>
 <script src="js/candlestick.js"></script>
+<script src="js/ema.js"></script>
+<script src="js/bollinger.js"></script>
+<script src="js/rsi-panel.js"></script>
+<script src="js/macd-panel.js"></script>
+<script src="js/volume-bars.js"></script>
 <script src="js/controls.js"></script>
+<script src="js/analysis-panel.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
