@@ -8,6 +8,9 @@
     "dev": "node --watch index.js",
     "test": "node --test __tests__/*.test.js"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "express": "^4.21.0",
     "ws": "^8.18.0"
