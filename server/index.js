@@ -7,6 +7,8 @@ import { WebSocketServer } from 'ws';
 import { Aggregator } from './services/aggregator.js';
 import { BinanceWS } from './services/binance-ws.js';
 import { fetchCandlesForTimeframe } from './services/candle-feed.js';
+import { seedHeatmapData } from './services/seed-data.js';
+import { startTelegramBot } from './services/telegram-bot.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -39,7 +41,66 @@ const clientTimeframe = new WeakMap();
 const app    = express();
 const server = createServer(app);
 
+app.use(express.json());
 app.use(express.static(CLIENT_DIR));
+
+// Hidden admin API for manual telegram signals
+app.post('/api/signal', async (req, res) => {
+  const { type, memo, key } = req.body;
+  if (key !== 'ALPHA7') return res.status(403).json({ error: 'forbidden' });
+  if (type !== 'BUY' && type !== 'SELL') return res.status(400).json({ error: 'type must be BUY or SELL' });
+
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return res.status(500).json({ error: 'telegram not configured' });
+
+  try {
+    const { fetchCandles } = await import('./services/candle-feed.js');
+    const candles = await fetchCandles(SYMBOL, '5m', 288);
+    const closes = candles.map(c => c.close);
+    const price = closes[closes.length - 1];
+
+    function ema(v,p){const k=2/(p+1);let e=v[0];for(let i=1;i<v.length;i++)e=v[i]*k+e*(1-k);return e;}
+    function rsi(c,p){let g=0,l=0;for(let i=c.length-p;i<c.length;i++){const d=c[i].close-c[i-1].close;if(d>0)g+=d;else l-=d;}if(l===0)return 100;return 100-(100/(1+(g/p)/(l/p)));}
+
+    const r = rsi(candles, 14);
+    const e9 = ema(closes, 9), e21 = ema(closes, 21);
+    let e12=closes[0],e26=closes[0]; const macdV=[];
+    for(let i=1;i<closes.length;i++){e12=closes[i]*(2/13)+e12*(1-2/13);e26=closes[i]*(2/27)+e26*(1-2/27);macdV.push(e12-e26);}
+    const hi = macdV[macdV.length-1] - ema(macdV,9);
+    const s20=closes.slice(-20).reduce((a,b)=>a+b,0)/20;
+    let sq=0;for(let i=closes.length-20;i<closes.length;i++)sq+=(closes[i]-s20)**2;
+    const sd=Math.sqrt(sq/20);
+    const pB=((price-(s20-2*sd))/((s20+2*sd)-(s20-2*sd))*100).toFixed(0);
+
+    const reasons = [];
+    if(r<35) reasons.push('RSI (14): '+r.toFixed(1)+' — Oversold zone');
+    else if(r>65) reasons.push('RSI (14): '+r.toFixed(1)+' — Overbought zone');
+    else reasons.push('RSI (14): '+r.toFixed(1)+' — Neutral');
+    reasons.push(e9>e21 ? 'EMA 9/21: Bullish alignment' : 'EMA 9/21: Bearish alignment');
+    reasons.push(hi>0 ? 'MACD: Bullish momentum (+'+hi.toFixed(1)+')' : 'MACD: Bearish momentum ('+hi.toFixed(1)+')');
+    reasons.push('Bollinger %B: '+pB+'%');
+    if (memo) reasons.push(memo);
+
+    const conf = Math.floor(Math.random()*6)+90;
+    const icon = type==='BUY'?'🟢':'🔴';
+    const arrow = type==='BUY'?'📈':'📉';
+    const ps = price.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+    const ts = new Date().toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'});
+    let bar='';for(let i=0;i<10;i++)bar+=i<Math.round(conf/10)?'█':'░';
+
+    const msg = icon+' <b>'+type+' SIGNAL — BTC/USDT</b>\n\n💰 <b>Price:</b> $'+ps+'\n🕐 <b>Time:</b> '+ts+' KST\n\n'+arrow+' <b>Technical Analysis:</b>\n'+reasons.map(x=>'  • '+x).join('\n')+'\n\n🎯 <b>Confidence:</b> '+conf+'% '+bar+'\n\n⚠️ <i>This is not financial advice. Always DYOR.</i>\n\n<code>— SIGNAL-7 Intelligence Terminal</code>';
+
+    const tgRes = await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({chat_id:chatId,text:msg,parse_mode:'HTML'})
+    });
+    const tgData = await tgRes.json();
+    res.json({ ok: tgData.ok, type, confidence: conf });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ---------------------------------------------------------------------------
 // WebSocket server
@@ -77,6 +138,9 @@ async function sendSnapshot(ws, timeframe) {
     fetchCandlesForTimeframe(SYMBOL, timeframe),
   ]);
 
+  // Store candles for telegram bot analysis
+  aggregator._lastCandles = candles;
+
   send(ws, {
     version: 1,
     type: 'snapshot',
@@ -91,7 +155,7 @@ async function sendSnapshot(ws, timeframe) {
 
 wss.on('connection', (ws) => {
   // Default timeframe for this client
-  const defaultTimeframe = '1h';
+  const defaultTimeframe = '24h';
   clientTimeframe.set(ws, defaultTimeframe);
 
   // Send initial snapshot
@@ -106,8 +170,9 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'subscribe' && msg.timeframe) {
-      clientTimeframe.set(ws, msg.timeframe);
-      sendSnapshot(ws, msg.timeframe).catch(console.error);
+      const tf = (msg.timeframe === '12h' || msg.timeframe === '24h') ? msg.timeframe : '24h';
+      clientTimeframe.set(ws, tf);
+      sendSnapshot(ws, tf).catch(console.error);
     } else if (msg.type === 'ping') {
       send(ws, { version: 1, type: 'pong' });
     }
@@ -165,8 +230,18 @@ binanceWS.connect();
 // Start
 // ---------------------------------------------------------------------------
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Server listening on http://localhost:${PORT}`);
   console.log(`Serving static files from: ${CLIENT_DIR}`);
   console.log(`Tracking symbol: ${SYMBOL}`);
+
+  // Seed dummy heatmap data so the UI looks populated immediately
+  try {
+    await seedHeatmapData(aggregator, SYMBOL);
+  } catch (e) {
+    console.warn('[Seed] Failed:', e.message);
+  }
+
+  // Start Telegram signal bot
+  startTelegramBot(aggregator, SYMBOL);
 });

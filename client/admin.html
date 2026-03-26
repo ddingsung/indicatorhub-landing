@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S7 — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #05050f;
+    color: #c8d0e0;
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .panel {
+    width: 420px;
+    background: #0a0c1a;
+    border: 1px solid #141830;
+    padding: 32px;
+  }
+  .title {
+    font-size: 11px;
+    color: #00b4ff;
+    letter-spacing: 3px;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .row {
+    margin-bottom: 16px;
+  }
+  label {
+    display: block;
+    font-size: 10px;
+    color: #5a6380;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .btn-row {
+    display: flex;
+    gap: 8px;
+  }
+  .type-btn {
+    flex: 1;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    border: 2px solid #141830;
+    background: transparent;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all .15s;
+  }
+  .type-btn:hover { border-color: #5a6380; }
+  .type-btn.buy { color: #00ff41; }
+  .type-btn.buy.selected { border-color: #00ff41; background: rgba(0,255,65,.08); }
+  .type-btn.sell { color: #ff1744; }
+  .type-btn.sell.selected { border-color: #ff1744; background: rgba(255,23,68,.08); }
+
+  textarea {
+    width: 100%;
+    background: #05050f;
+    border: 1px solid #141830;
+    color: #c8d0e0;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 10px;
+    resize: vertical;
+    min-height: 60px;
+  }
+  textarea:focus { outline: none; border-color: #00b4ff; }
+
+  .send-btn {
+    width: 100%;
+    padding: 14px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #05050f;
+    background: #00b4ff;
+    border: none;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .send-btn:hover { background: #33c4ff; }
+  .send-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .result {
+    margin-top: 16px;
+    padding: 10px;
+    font-size: 11px;
+    text-align: center;
+    display: none;
+  }
+  .result.ok { display: block; color: #00ff41; border: 1px solid rgba(0,255,65,.2); background: rgba(0,255,65,.04); }
+  .result.err { display: block; color: #ff1744; border: 1px solid rgba(255,23,68,.2); background: rgba(255,23,68,.04); }
+
+  .history {
+    margin-top: 20px;
+    border-top: 1px solid #141830;
+    padding-top: 12px;
+  }
+  .history-title {
+    font-size: 9px;
+    color: #5a6380;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .history-item {
+    font-size: 10px;
+    padding: 4px 0;
+    color: #5a6380;
+  }
+  .history-item .buy { color: #00ff41; }
+  .history-item .sell { color: #ff1744; }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="title">[ SIGNAL-7 ] MANUAL SIGNAL</div>
+
+  <div class="row">
+    <label>Signal Type</label>
+    <div class="btn-row">
+      <button class="type-btn buy" id="btnBuy" onclick="selectType('BUY')">BUY</button>
+      <button class="type-btn sell" id="btnSell" onclick="selectType('SELL')">SELL</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <label>Additional Note (optional)</label>
+    <textarea id="memo" placeholder="Support bounce confirmed at $69,500..."></textarea>
+  </div>
+
+  <button class="send-btn" id="sendBtn" onclick="sendSignal()" disabled>SEND SIGNAL</button>
+
+  <div class="result" id="result"></div>
+
+  <div class="history" id="history">
+    <div class="history-title">RECENT SIGNALS</div>
+  </div>
+</div>
+
+<script>
+var selectedType = null;
+
+function selectType(t) {
+  selectedType = t;
+  document.getElementById('btnBuy').classList.toggle('selected', t === 'BUY');
+  document.getElementById('btnSell').classList.toggle('selected', t === 'SELL');
+  document.getElementById('sendBtn').disabled = false;
+}
+
+async function sendSignal() {
+  if (!selectedType) return;
+  var btn = document.getElementById('sendBtn');
+  var result = document.getElementById('result');
+  btn.disabled = true;
+  btn.textContent = 'SENDING...';
+  result.className = 'result';
+
+  try {
+    var res = await fetch('/api/signal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: selectedType,
+        memo: document.getElementById('memo').value.trim() || undefined,
+        key: 'ALPHA7'
+      })
+    });
+    var data = await res.json();
+    if (data.ok) {
+      result.textContent = selectedType + ' signal sent — Confidence: ' + data.confidence + '%';
+      result.className = 'result ok';
+      addHistory(selectedType, data.confidence);
+      document.getElementById('memo').value = '';
+    } else {
+      result.textContent = 'Failed: ' + (data.error || 'Unknown error');
+      result.className = 'result err';
+    }
+  } catch(e) {
+    result.textContent = 'Error: ' + e.message;
+    result.className = 'result err';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'SEND SIGNAL';
+}
+
+function addHistory(type, conf) {
+  var el = document.getElementById('history');
+  var ts = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  var div = document.createElement('div');
+  div.className = 'history-item';
+  div.innerHTML = ts + ' — <span class="' + type.toLowerCase() + '">' + type + '</span> (' + conf + '%)';
+  el.appendChild(div);
+}
+</script>
+</body>
+</html>

@@ -42,15 +42,12 @@ export async function fetchCandles(symbol = 'BTCUSDT', interval = '1h', limit = 
  */
 export async function fetchCandlesForTimeframe(symbol, timeframe) {
   const timeframeConfig = {
-    '5m': { interval: '5m', limit: 288 },
-    '15m': { interval: '15m', limit: 192 },
-    '1h': { interval: '1h', limit: 168 },
-    '4h': { interval: '4h', limit: 180 },
-    '1d': { interval: '1d', limit: 30 }
+    '12h': { interval: '5m',  limit: 144 },   // 5min candles × 144 = 12h
+    '24h': { interval: '15m', limit:  96 },   // 15min candles × 96 = 24h
   };
 
   if (!timeframeConfig[timeframe]) {
-    throw new Error(`Unknown timeframe: ${timeframe}. Supported: 5m, 15m, 1h, 4h, 1d`);
+    throw new Error(`Unknown timeframe: ${timeframe}. Supported: 12h, 24h`);
   }
 
   const { interval, limit } = timeframeConfig[timeframe];

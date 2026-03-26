@@ -1,231 +1,181 @@
-/* ═══════════════════════════════════════════
-   HeatmapRenderer
-   Renders liquidation volume as a color-coded heatmap on a canvas.
-
-   Accepts bucket data in array format from server:
-     [{ time, priceLevels: { [priceKey]: { long, short } } }]
-   ═══════════════════════════════════════════ */
-
+/* HeatmapRenderer — Coinglass-style liquidation heatmap
+   Each price level draws a full-width horizontal band.
+   Overlapping bands at nearby prices create bright concentration zones. */
 (function () {
   'use strict';
 
-  var AXIS_LEFT   = 70;
-  var AXIS_RIGHT  = 60;
-  var AXIS_BOTTOM = 28;
-
+  // Coinglass-inspired palette: dark → purple → blue → cyan → green → yellow → white
   var PALETTES = {
-    all:   [[10,14,28], [26,58,92], [240,192,64], [255,61,61]],
-    long:  [[10,14,28], [80,20,20], [200,40,40], [255,61,113]],
-    short: [[10,14,28], [15,60,30], [0,180,90], [0,255,135]]
+    all: [
+      [5, 2, 20],       // near-black
+      [30, 10, 80],     // deep purple
+      [20, 40, 140],    // blue
+      [0, 140, 180],    // cyan
+      [0, 200, 100],    // green
+      [200, 220, 50],   // yellow
+      [255, 255, 200]   // bright white-yellow
+    ],
+    long: [
+      [5, 2, 15],
+      [50, 5, 30],
+      [120, 10, 40],
+      [200, 30, 60],
+      [255, 60, 80],
+      [255, 120, 100],
+      [255, 200, 180]
+    ],
+    short: [
+      [2, 5, 15],
+      [5, 30, 50],
+      [0, 80, 80],
+      [0, 150, 100],
+      [0, 220, 120],
+      [100, 255, 150],
+      [200, 255, 220]
+    ]
   };
 
-  function lerpColor(colors, t) {
-    if (t <= 0) return colors[0].slice();
-    if (t >= 1) return colors[colors.length - 1].slice();
-
-    var segments = colors.length - 1;
-    var scaled   = t * segments;
-    var idx      = Math.floor(scaled);
-    var frac     = scaled - idx;
-
-    if (idx >= segments) { idx = segments - 1; frac = 1; }
-
-    var a = colors[idx];
-    var b = colors[idx + 1];
+  function lerp(colors, t) {
+    t = Math.max(0, Math.min(1, t));
+    var n = colors.length - 1, s = t * n, i = Math.floor(s), f = s - i;
+    if (i >= n) { i = n - 1; f = 1; }
+    var a = colors[i], b = colors[i + 1];
     return [
-      Math.round(a[0] + (b[0] - a[0]) * frac),
-      Math.round(a[1] + (b[1] - a[1]) * frac),
-      Math.round(a[2] + (b[2] - a[2]) * frac)
+      Math.round(a[0] + (b[0] - a[0]) * f),
+      Math.round(a[1] + (b[1] - a[1]) * f),
+      Math.round(a[2] + (b[2] - a[2]) * f)
     ];
   }
 
-  function HeatmapRenderer(canvas) {
-    this.canvas = canvas;
-    this.ctx    = canvas.getContext('2d');
-    this.dpr    = window.devicePixelRatio || 1;
+  function HeatmapRenderer() {
+    this._offCanvas = null;
+    this._offCtx    = null;
   }
 
-  HeatmapRenderer.prototype.resize = function () {
-    var container = this.canvas.parentElement;
-    if (!container) return;
-
-    var w   = container.clientWidth;
-    var h   = container.clientHeight;
-    var dpr = window.devicePixelRatio || 1;
-
-    this.dpr          = dpr;
-    this.canvas.width  = w * dpr;
-    this.canvas.height = h * dpr;
-    this.canvas.style.width  = w + 'px';
-    this.canvas.style.height = h + 'px';
-
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  };
-
   /**
-   * Render heatmap buckets onto the canvas.
-   *
-   * @param {Array} buckets - Array of { time, priceLevels: { [price]: { long, short } } }
-   * @param {Object} opts
-   *   - viewMode: 'all' | 'long' | 'short'
-   *   - currentPrice: number
-   *   - priceRange: number (fraction, default 0.02 = ±2%)
-   * @returns {{ priceLow, priceHigh, times, bucketWidth }}
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {Array} buckets - [{ time, priceLevels: { [price]: { long, short } } }]
+   * @param {Object} coord - { drawX, drawW, drawH, timeStart, timeEnd, priceLow, priceHigh }
+   * @param {string} viewMode - 'all' | 'long' | 'short'
    */
-  HeatmapRenderer.prototype.render = function (buckets, opts) {
-    opts = opts || {};
-    var viewMode     = opts.viewMode     || 'all';
-    var currentPrice = opts.currentPrice || 0;
-    var priceRange   = opts.priceRange   != null ? opts.priceRange : 0.02;
+  HeatmapRenderer.prototype.render = function (ctx, buckets, coord, viewMode) {
+    if (!buckets || buckets.length === 0) return;
 
-    var ctx    = this.ctx;
-    var canvas = this.canvas;
-    var W      = canvas.width  / this.dpr;
-    var H      = canvas.height / this.dpr;
+    var drawX = coord.drawX, drawW = coord.drawW, drawH = coord.drawH;
+    var priceLow = coord.priceLow, priceHigh = coord.priceHigh;
+    var priceRange = priceHigh - priceLow;
+    if (drawW <= 0 || drawH <= 0 || priceRange <= 0) return;
 
-    ctx.clearRect(0, 0, W, H);
+    // Detect price bucket width
+    var priceBucketW = this._detectPriceBucketWidth(buckets);
+    var cellH = Math.max(1, drawH * priceBucketW / priceRange);
 
-    var drawX = AXIS_LEFT;
-    var drawW = W - AXIS_LEFT - AXIS_RIGHT;
-    var drawH = H - AXIS_BOTTOM;
-
-    if (!buckets || buckets.length === 0) {
-      this._drawMessage(ctx, drawX + drawW / 2, drawH / 2, '데이터 수집 중...');
-      return { priceLow: 0, priceHigh: 0, times: [], bucketWidth: 0 };
-    }
-
-    // Extract sorted times from array
-    var times = buckets.map(function (b) { return b.time; });
-
-    // Price range
-    var priceLow, priceHigh;
-    if (currentPrice > 0) {
-      priceLow  = currentPrice * (1 - priceRange);
-      priceHigh = currentPrice * (1 + priceRange);
-    } else {
-      var allPrices = [];
-      buckets.forEach(function (b) {
-        Object.keys(b.priceLevels).forEach(function (p) { allPrices.push(Number(p)); });
-      });
-      if (allPrices.length === 0) {
-        this._drawMessage(ctx, drawX + drawW / 2, drawH / 2, '범위 내 청산 데이터 없음');
-        return { priceLow: 0, priceHigh: 0, times: times, bucketWidth: 0 };
+    // Phase 1: Aggregate volumes by price level (collapse time dimension)
+    var priceAgg = {};
+    for (var bi = 0; bi < buckets.length; bi++) {
+      var keys = Object.keys(buckets[bi].priceLevels);
+      for (var ki = 0; ki < keys.length; ki++) {
+        var pk = keys[ki];
+        var cell = buckets[bi].priceLevels[pk];
+        var vol = viewMode === 'long' ? (cell.long || 0)
+                : viewMode === 'short' ? (cell.short || 0)
+                : (cell.long || 0) + (cell.short || 0);
+        if (vol <= 0) continue;
+        priceAgg[pk] = (priceAgg[pk] || 0) + vol;
       }
-      priceLow  = Math.min.apply(null, allPrices);
-      priceHigh = Math.max.apply(null, allPrices);
-      var margin = (priceHigh - priceLow) * 0.05 || 50;
-      priceLow  -= margin;
-      priceHigh += margin;
     }
 
-    // Collect price keys in range
-    var priceKeysSet = {};
-    buckets.forEach(function (b) {
-      Object.keys(b.priceLevels).forEach(function (pk) {
-        var p = Number(pk);
-        if (p >= priceLow && p <= priceHigh) {
-          priceKeysSet[pk] = true;
-        }
-      });
-    });
-    var priceKeys = Object.keys(priceKeysSet).map(Number).sort(function (a, b) { return a - b; });
+    // Phase 2: Find max for normalization
+    var maxLog = 0;
+    var priceKeys = Object.keys(priceAgg);
+    for (var i = 0; i < priceKeys.length; i++) {
+      var lv = Math.log1p(priceAgg[priceKeys[i]]);
+      if (lv > maxLog) maxLog = lv;
+    }
+    if (maxLog === 0) return;
 
-    if (priceKeys.length === 0) {
-      this._drawMessage(ctx, drawX + drawW / 2, drawH / 2, '범위 내 청산 데이터 없음');
-      return { priceLow: priceLow, priceHigh: priceHigh, times: times, bucketWidth: 0 };
+    var palette = PALETTES[viewMode] || PALETTES.all;
+
+    // Ensure off-screen canvas
+    var offW = Math.ceil(drawW);
+    var offH = Math.ceil(drawH);
+    if (!this._offCanvas || this._offCanvas.width !== offW || this._offCanvas.height !== offH) {
+      this._offCanvas = document.createElement('canvas');
+      this._offCanvas.width  = offW;
+      this._offCanvas.height = offH;
+      this._offCtx = this._offCanvas.getContext('2d');
     }
 
-    // Find max log-volume in viewport
-    var maxLogVol = 0;
-    buckets.forEach(function (b) {
-      priceKeys.forEach(function (pk) {
-        var cell = b.priceLevels[pk] || b.priceLevels[String(pk)];
-        if (!cell) return;
-        var vol = 0;
-        if (viewMode === 'all')       vol = (cell.long || 0) + (cell.short || 0);
-        else if (viewMode === 'long') vol = cell.long || 0;
-        else                          vol = cell.short || 0;
-        var logVol = Math.log1p(vol);
-        if (logVol > maxLogVol) maxLogVol = logVol;
-      });
-    });
+    var offCtx = this._offCtx;
+    offCtx.clearRect(0, 0, offW, offH);
+    offCtx.globalCompositeOperation = 'lighter';
 
-    if (maxLogVol === 0) maxLogVol = 1;
+    var overlapY = cellH * 0.3;
 
-    var nCols       = buckets.length;
-    var colWidth    = drawW / nCols;
-    var palette     = PALETTES[viewMode] || PALETTES.all;
+    // Phase 3: Draw full-width horizontal band per price level
+    for (var i = 0; i < priceKeys.length; i++) {
+      var pk  = Number(priceKeys[i]);
+      var vol = priceAgg[priceKeys[i]];
 
-    // Draw cells
-    buckets.forEach(function (bucket, colIdx) {
-      var cellX = drawX + colIdx * colWidth;
+      var cy = drawH * (1 - (pk + priceBucketW - priceLow) / priceRange);
+      if (cy + cellH + overlapY < 0 || cy - overlapY > drawH) continue;
 
-      priceKeys.forEach(function (pk) {
-        var cell = bucket.priceLevels[pk] || bucket.priceLevels[String(pk)];
-        if (!cell) return;
+      var t   = Math.min(1, Math.log1p(vol) / maxLog);
+      var rgb = lerp(palette, t);
 
-        var vol = 0;
-        if (viewMode === 'all')       vol = (cell.long || 0) + (cell.short || 0);
-        else if (viewMode === 'long') vol = cell.long || 0;
-        else                          vol = cell.short || 0;
+      // Main band — full width
+      var alpha = 0.2 + t * 0.7;
+      offCtx.fillStyle = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + alpha.toFixed(3) + ')';
+      offCtx.fillRect(0, Math.floor(cy - overlapY), offW, Math.ceil(cellH + overlapY * 2));
 
-        if (vol <= 0) return;
-
-        var logVol = Math.log1p(vol);
-        var t01    = Math.min(1, logVol / maxLogVol);
-        var rgb    = lerpColor(palette, t01);
-
-        var priceFrac = (pk - priceLow) / (priceHigh - priceLow);
-        var cellY     = drawH * (1 - priceFrac);
-
-        var priceStep = (priceHigh - priceLow) / priceKeys.length;
-        var cellH     = Math.max(1, drawH * priceStep / (priceHigh - priceLow));
-
-        ctx.fillStyle = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.9)';
-        ctx.fillRect(
-          Math.floor(cellX),
-          Math.floor(cellY - cellH),
-          Math.ceil(colWidth) + 1,
-          Math.ceil(cellH) + 1
-        );
-      });
-    });
-
-    // Current price line
-    if (currentPrice >= priceLow && currentPrice <= priceHigh) {
-      var priceFracLine = (currentPrice - priceLow) / (priceHigh - priceLow);
-      var lineY = drawH * (1 - priceFracLine);
-
-      ctx.save();
-      ctx.strokeStyle = '#00e5ff';
-      ctx.lineWidth   = 1;
-      ctx.setLineDash([4, 4]);
-      ctx.globalAlpha = 0.8;
-      ctx.beginPath();
-      ctx.moveTo(drawX, lineY);
-      ctx.lineTo(drawX + drawW, lineY);
-      ctx.stroke();
-      ctx.restore();
+      // Extra glow for high-intensity levels
+      if (t > 0.35) {
+        var glowAlpha = (t - 0.35) * 0.35;
+        offCtx.fillStyle = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + glowAlpha.toFixed(3) + ')';
+        offCtx.fillRect(0, Math.floor(cy - overlapY * 3), offW, Math.ceil(cellH + overlapY * 6));
+      }
     }
 
-    return {
-      priceLow:    priceLow,
-      priceHigh:   priceHigh,
-      times:       times,
-      bucketWidth: colWidth
-    };
-  };
+    offCtx.globalCompositeOperation = 'source-over';
 
-  HeatmapRenderer.prototype._drawMessage = function (ctx, x, y, msg) {
+    // Draw to main canvas with blur for smooth gradient feel
     ctx.save();
-    ctx.font      = '13px "JetBrains Mono", monospace';
-    ctx.fillStyle = '#4a5568';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(msg, x, y);
+    ctx.beginPath();
+    ctx.rect(drawX, 0, drawW, drawH);
+    ctx.clip();
+
+    var blurRadius = Math.max(2, Math.min(10, Math.floor(cellH * 0.6)));
+    if (typeof ctx.filter !== 'undefined') {
+      ctx.filter = 'blur(' + blurRadius + 'px)';
+    }
+
+    ctx.drawImage(this._offCanvas, drawX, 0);
+
+    // Sharp overlay for highlights
+    if (typeof ctx.filter !== 'undefined') {
+      ctx.filter = 'none';
+    }
+    ctx.globalAlpha = 0.3;
+    ctx.drawImage(this._offCanvas, drawX, 0);
+    ctx.globalAlpha = 1;
+
     ctx.restore();
   };
 
-  window.HeatmapRenderer = HeatmapRenderer;
+  HeatmapRenderer.prototype._detectPriceBucketWidth = function (buckets) {
+    var allKeys = {};
+    for (var i = 0; i < buckets.length; i++) {
+      var keys = Object.keys(buckets[i].priceLevels);
+      for (var k = 0; k < keys.length; k++) allKeys[keys[k]] = true;
+    }
+    var sorted = Object.keys(allKeys).map(Number).sort(function (a, b) { return a - b; });
+    var minGap = 35;
+    for (var i = 1; i < sorted.length; i++) {
+      var gap = sorted[i] - sorted[i - 1];
+      if (gap > 0 && gap < minGap) minGap = gap;
+    }
+    return minGap;
+  };
 
+  window.HeatmapRenderer = HeatmapRenderer;
 }());

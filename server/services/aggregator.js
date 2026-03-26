@@ -24,11 +24,8 @@
  */
 
 const TIMEFRAMES = {
-  '5m':  { intervalMs:   5 * 60 * 1000, maxBuckets: 288 },
-  '15m': { intervalMs:  15 * 60 * 1000, maxBuckets: 192 },
-  '1h':  { intervalMs:  60 * 60 * 1000, maxBuckets: 168 },
-  '4h':  { intervalMs: 240 * 60 * 1000, maxBuckets: 180 },
-  '1d':  { intervalMs: 1440 * 60 * 1000, maxBuckets:  30 },
+  '12h': { intervalMs:  5 * 60 * 1000, maxBuckets: 144 },   // 5min buckets × 144 = 12h
+  '24h': { intervalMs: 15 * 60 * 1000, maxBuckets:  96 },   // 15min buckets × 96 = 24h
 };
 
 const MAX_PRICE_LEVELS = 200;
