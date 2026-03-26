@@ -1020,6 +1020,11 @@ body {
 
 /* Crosshair cursor when placing markers */
 .chart-container.placing { cursor: crosshair; }
+.chart-container.deleting { cursor: not-allowed; }
+
+.btn-delete-mode.active {
+  color: #ffab00 !important;
+}
 
 /* ═══════════════════════════════════════════
    CHART CARD

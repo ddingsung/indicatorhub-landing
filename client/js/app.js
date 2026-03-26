@@ -900,7 +900,7 @@
       return saved ? JSON.parse(saved) : [];
     } catch (e) { return []; }
   })();
-  var markerMode = null; // null | 'buy' | 'sell'
+  var markerMode = null; // null | 'buy' | 'sell' | 'delete'
 
   function saveMarkers() {
     try { localStorage.setItem('s7_markers', JSON.stringify(manualMarkers)); } catch (e) {}
@@ -908,14 +908,17 @@
 
   var addBuyBtn = document.getElementById('addBuyBtn');
   var addSellBtn = document.getElementById('addSellBtn');
+  var deleteMarkerBtn = document.getElementById('deleteMarkerBtn');
   var clearMarkersBtn = document.getElementById('clearMarkersBtn');
 
   function setMarkerMode(mode) {
     markerMode = markerMode === mode ? null : mode;
     if (addBuyBtn) addBuyBtn.classList.toggle('active', markerMode === 'buy');
     if (addSellBtn) addSellBtn.classList.toggle('active', markerMode === 'sell');
-    chartCont.classList.toggle('placing', markerMode !== null);
-    // Close menu after selection
+    if (deleteMarkerBtn) deleteMarkerBtn.classList.toggle('active', markerMode === 'delete');
+    chartCont.classList.remove('placing', 'deleting');
+    if (markerMode === 'buy' || markerMode === 'sell') chartCont.classList.add('placing');
+    if (markerMode === 'delete') chartCont.classList.add('deleting');
     if (menuDropdown) menuDropdown.classList.remove('open');
   }
 
@@ -926,6 +929,10 @@
   if (addSellBtn) addSellBtn.addEventListener('click', function (e) {
     e.stopPropagation();
     setMarkerMode('sell');
+  });
+  if (deleteMarkerBtn) deleteMarkerBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    setMarkerMode('delete');
   });
   if (clearMarkersBtn) clearMarkersBtn.addEventListener('click', function (e) {
     e.stopPropagation();
@@ -960,7 +967,33 @@
     var timeFrac = (x - coord.drawX) / coord.drawW;
     var time = coord.timeStart + timeFrac * (coord.timeEnd - coord.timeStart);
 
-    // Snap to nearest candle
+    if (markerMode === 'delete') {
+      // Find and remove closest marker to click position
+      if (manualMarkers.length === 0) return;
+      var bestIdx = -1, bestDist = Infinity;
+      var tRange = coord.timeEnd - coord.timeStart;
+      var pRange = coord.priceHigh - coord.priceLow;
+
+      for (var mi = 0; mi < manualMarkers.length; mi++) {
+        var m = manualMarkers[mi];
+        var mt = m.time || 0;
+        var mp = m.price || 0;
+        // Normalize to pixel-ish distance
+        var dx = ((mt - time) / tRange) * coord.drawW;
+        var dy = ((mp - (coord.priceHigh - (y / coord.drawH) * pRange)) / pRange) * coord.drawH;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < bestDist) { bestDist = dist; bestIdx = mi; }
+      }
+
+      if (bestIdx >= 0 && bestDist < 80) {
+        manualMarkers.splice(bestIdx, 1);
+        saveMarkers();
+        scheduleRender();
+      }
+      return;
+    }
+
+    // Add marker — snap to nearest candle
     var candle = findNearestCandle(time);
     if (!candle) return;
 
