@@ -42,12 +42,12 @@ export async function fetchCandles(symbol = 'BTCUSDT', interval = '1h', limit = 
  */
 export async function fetchCandlesForTimeframe(symbol, timeframe) {
   const timeframeConfig = {
-    '5m':  { interval: '5m',  limit: 500 },   // ~1.7 days
-    '15m': { interval: '15m', limit: 500 },   // ~5.2 days
-    '30m': { interval: '30m', limit: 500 },   // ~10.4 days
-    '1h':  { interval: '1h',  limit: 500 },   // ~20.8 days
-    '4h':  { interval: '4h',  limit: 500 },   // ~83 days
-    '1d':  { interval: '1d',  limit: 365 },   // ~1 year
+    '5m':  { interval: '5m',  limit: 1000 },  // ~3.5 days
+    '15m': { interval: '15m', limit: 1000 },  // ~10.4 days
+    '30m': { interval: '30m', limit: 1000 },  // ~20.8 days
+    '1h':  { interval: '1h',  limit: 1000 },  // ~41 days
+    '4h':  { interval: '4h',  limit: 1000 },  // ~166 days
+    '1d':  { interval: '1d',  limit: 500 },   // ~1.4 years
     // Legacy support
     '12h': { interval: '5m',  limit: 144 },
     '24h': { interval: '15m', limit:  96 },

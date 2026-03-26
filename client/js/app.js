@@ -215,8 +215,8 @@
   function fetchBinanceDirect() {
     var tf = controls.timeframe;
     var tfConfig = {
-      '5m': { i: '5m', l: 500 }, '15m': { i: '15m', l: 500 }, '30m': { i: '30m', l: 500 },
-      '1h': { i: '1h', l: 500 }, '4h': { i: '4h', l: 500 }, '1d': { i: '1d', l: 365 }
+      '5m': { i: '5m', l: 1000 }, '15m': { i: '15m', l: 1000 }, '30m': { i: '30m', l: 1000 },
+      '1h': { i: '1h', l: 1000 }, '4h': { i: '4h', l: 1000 }, '1d': { i: '1d', l: 500 }
     };
     var cfg = tfConfig[tf] || tfConfig['15m'];
     var interval = cfg.i;
@@ -324,11 +324,23 @@
 
   function handleMarker(msg) {
     if (!msg.markerType || !msg.price) return;
+    console.log('[MARKER] Received:', msg.markerType, msg.price);
+
+    // Find closest candle time for accurate placement
+    var mTime = msg.timestamp || Date.now();
+    var bestTime = mTime;
+    if (state.candles.length > 0) {
+      var minDist = Infinity;
+      for (var i = 0; i < state.candles.length; i++) {
+        var d = Math.abs(state.candles[i].time - mTime);
+        if (d < minDist) { minDist = d; bestTime = state.candles[i].time; }
+      }
+    }
 
     manualMarkers.push({
       type: msg.markerType === 'buy' ? 'buy' : 'sell',
       price: Number(msg.price),
-      time: msg.timestamp || Date.now()
+      time: bestTime
     });
     saveMarkers();
     scheduleRender();
@@ -752,6 +764,35 @@
      Horizontal Pan (drag left/right)
   ═══════════════════════════════════════════ */
   var viewport = { timeStart: null, timeEnd: null, isDragging: false, dragStartX: 0, dragTimeStart: 0, dragTimeEnd: 0 };
+
+  // Scroll to zoom
+  chartCont.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var coord = lastCoord;
+    if (!coord) return;
+
+    if (viewport.timeStart == null) viewport.timeStart = coord.timeStart;
+    if (viewport.timeEnd == null) viewport.timeEnd = coord.timeEnd;
+
+    var factor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+    var rect = chartCont.getBoundingClientRect();
+    var mx = Math.max(0, Math.min(1, (e.clientX - rect.left - AXIS_LEFT) / (rect.width - AXIS_LEFT - AXIS_RIGHT)));
+
+    var tRange = viewport.timeEnd - viewport.timeStart;
+    var newTRange = tRange * factor;
+    // Min ~5 candles visible, max = full data
+    var dataRange = state.candles.length > 1
+      ? state.candles[state.candles.length - 1].time - state.candles[0].time
+      : tRange;
+    var candleInterval = state.candles.length > 1 ? state.candles[1].time - state.candles[0].time : 60000;
+    newTRange = Math.max(candleInterval * 5, Math.min(dataRange * 1.2, newTRange));
+
+    var pivot = viewport.timeStart + tRange * mx;
+    viewport.timeStart = pivot - newTRange * mx;
+    viewport.timeEnd = pivot + newTRange * (1 - mx);
+
+    scheduleRender();
+  }, { passive: false });
 
   chartCont.addEventListener('mousedown', function (e) {
     if (e.button !== 0 || markerMode) return;
