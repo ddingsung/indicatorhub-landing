@@ -392,7 +392,7 @@
 
     // 7. Manual markers
     if (manualMarkers.length > 0) {
-      signals.renderManual(ctx, manualMarkers, coord);
+      signals.renderManual(ctx, manualMarkers, coord, state.candles);
     }
 
     // 8. Axes

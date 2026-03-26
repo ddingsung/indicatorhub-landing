@@ -248,9 +248,10 @@
   };
 
   /**
-   * Render manual markers snapped to candles with connecting lines.
+   * Render manual markers — re-snaps to nearest candle at render time.
+   * @param {Array} candles - current candle data for snapping
    */
-  SignalRenderer.prototype.renderManual = function (ctx, manualSignals, coord) {
+  SignalRenderer.prototype.renderManual = function (ctx, manualSignals, coord, candles) {
     if (!manualSignals || manualSignals.length === 0) return;
 
     var drawX = coord.drawX, drawW = coord.drawW, drawH = coord.drawH;
@@ -265,46 +266,52 @@
 
     var timeStart = coord.timeStart, timeEnd = coord.timeEnd;
     var timeRange = timeEnd - timeStart;
-    var OFFSET = 28; // distance from candle to bubble tip
+    var OFFSET = 28;
 
     for (var i = 0; i < manualSignals.length; i++) {
       var sig = manualSignals[i];
-      var priceY = drawH * (1 - (sig.price - priceLow) / priceRange);
+      var isBuy = sig.type === 'buy';
 
+      // Re-snap to nearest candle in current dataset
+      var snapCandle = null;
+      if (candles && candles.length > 0 && sig.time != null) {
+        var bestDist = Infinity;
+        for (var ci = 0; ci < candles.length; ci++) {
+          var d = Math.abs(candles[ci].time - sig.time);
+          if (d < bestDist) { bestDist = d; snapCandle = candles[ci]; }
+        }
+      }
+
+      var snapPrice = snapCandle
+        ? (isBuy ? snapCandle.low : snapCandle.high)
+        : sig.price;
+      var snapTime = snapCandle ? snapCandle.time : sig.time;
+
+      var priceY = drawH * (1 - (snapPrice - priceLow) / priceRange);
       var cx;
-      if (sig.time != null && timeRange > 0) {
-        cx = drawX + (sig.time - timeStart) / timeRange * drawW;
+      if (snapTime != null && timeRange > 0) {
+        cx = drawX + (snapTime - timeStart) / timeRange * drawW;
       } else {
         cx = drawX + drawW / 2;
       }
 
       if (cx < drawX - 10 || cx > drawX + drawW + 10) continue;
+      if (priceY < -30 || priceY > drawH + 30) continue;
 
-      var bg = sig.type === 'buy' ? BUY_BG : SELL_BG;
-      var label = sig.type === 'buy' ? 'BUY' : 'SELL';
-      var isBuy = sig.type === 'buy';
+      var bg = isBuy ? BUY_BG : SELL_BG;
+      var label = isBuy ? 'BUY' : 'SELL';
 
-      // Determine bubble position
+      // Bubble direction
       var bubbleY, dir;
       if (isBuy) {
-        if (priceY + OFFSET + 25 > drawH) {
-          bubbleY = priceY - OFFSET;
-          dir = 'down';
-        } else {
-          bubbleY = priceY + OFFSET;
-          dir = 'up';
-        }
+        if (priceY + OFFSET + 25 > drawH) { bubbleY = priceY - OFFSET; dir = 'down'; }
+        else { bubbleY = priceY + OFFSET; dir = 'up'; }
       } else {
-        if (priceY - OFFSET - 25 < 0) {
-          bubbleY = priceY + OFFSET;
-          dir = 'up';
-        } else {
-          bubbleY = priceY - OFFSET;
-          dir = 'down';
-        }
+        if (priceY - OFFSET - 25 < 0) { bubbleY = priceY + OFFSET; dir = 'up'; }
+        else { bubbleY = priceY - OFFSET; dir = 'down'; }
       }
 
-      // Draw connecting line from candle to bubble
+      // Connecting line
       ctx.strokeStyle = isBuy ? 'rgba(38,166,154,0.5)' : 'rgba(239,83,80,0.5)';
       ctx.lineWidth = 1;
       ctx.setLineDash([2, 2]);
@@ -314,13 +321,13 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Small dot on the candle
+      // Dot on candle
       ctx.beginPath();
       ctx.arc(cx, priceY, 3, 0, Math.PI * 2);
-      ctx.fillStyle = isBuy ? BUY_BG : SELL_BG;
+      ctx.fillStyle = bg;
       ctx.fill();
 
-      // Draw bubble
+      // Bubble
       this._drawBubble(ctx, cx, bubbleY, label, bg, dir);
     }
 
