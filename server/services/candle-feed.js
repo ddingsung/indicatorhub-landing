@@ -42,6 +42,7 @@ export async function fetchCandles(symbol = 'BTCUSDT', interval = '1h', limit = 
  */
 export async function fetchCandlesForTimeframe(symbol, timeframe) {
   const timeframeConfig = {
+    '1m':  { interval: '1m',  limit: 1000 },  // ~16.7 hours
     '5m':  { interval: '5m',  limit: 1000 },  // ~3.5 days
     '15m': { interval: '15m', limit: 1000 },  // ~10.4 days
     '30m': { interval: '30m', limit: 1000 },  // ~20.8 days

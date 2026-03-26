@@ -195,7 +195,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'subscribe' && msg.timeframe) {
-      const validTf = ['5m', '15m', '30m', '1h', '4h', '1d', '12h', '24h', '3d', '7d'];
+      const validTf = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '12h', '24h', '3d', '7d'];
       const tf = validTf.includes(msg.timeframe) ? msg.timeframe : '15m';
       clientTimeframe.set(ws, tf);
       sendSnapshot(ws, tf).catch(console.error);

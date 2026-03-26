@@ -215,7 +215,7 @@
   function fetchBinanceDirect() {
     var tf = controls.timeframe;
     var tfConfig = {
-      '5m': { i: '5m', l: 1000 }, '15m': { i: '15m', l: 1000 }, '30m': { i: '30m', l: 1000 },
+      '1m': { i: '1m', l: 1000 }, '5m': { i: '5m', l: 1000 }, '15m': { i: '15m', l: 1000 }, '30m': { i: '30m', l: 1000 },
       '1h': { i: '1h', l: 1000 }, '4h': { i: '4h', l: 1000 }, '1d': { i: '1d', l: 500 }
     };
     var cfg = tfConfig[tf] || tfConfig['15m'];
