@@ -12,7 +12,7 @@ const SCAN_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const MIN_CONFIDENCE = 65;
 
 let lastSignalTime = 0;
-const COOLDOWN = 15 * 60 * 1000; // 15 min between signals
+const COOLDOWN = 5 * 60 * 1000; // 5 min between signals
 
 // ── Telegram API ─────────────────────────────
 
@@ -328,13 +328,19 @@ function isAutoBotEnabled() {
   } catch { return true; }
 }
 
-function scan() {
-  if (!aggregatorRef) return;
+async function scan() {
   if (!isAutoBotEnabled()) return;
 
-  // Get candle data from the aggregator's candle feed
-  const candles = aggregatorRef._lastCandles || [];
-  if (candles.length < 30) return;
+  // Fetch candles directly from Binance
+  let candles;
+  try {
+    const { fetchCandles } = await import('./candle-feed.js');
+    candles = await fetchCandles(symbolRef, '15m', 100);
+  } catch (e) {
+    console.warn('[Telegram] Failed to fetch candles:', e.message);
+    return;
+  }
+  if (!candles || candles.length < 30) return;
 
   const signal = analyzeAndSignal(candles);
   if (!signal) return;
