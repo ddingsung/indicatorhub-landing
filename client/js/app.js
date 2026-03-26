@@ -214,8 +214,10 @@
   /* ── Binance REST API fallback (for static hosting) ── */
   function fetchBinanceDirect() {
     var tf = controls.timeframe;
-    var interval = tf === '12h' ? '5m' : '15m';
-    var limit = tf === '12h' ? 144 : 96;
+    var tfConfig = { '12h': { i: '5m', l: 144 }, '24h': { i: '15m', l: 96 }, '3d': { i: '1h', l: 72 }, '7d': { i: '4h', l: 42 } };
+    var cfg = tfConfig[tf] || tfConfig['24h'];
+    var interval = cfg.i;
+    var limit = cfg.l;
     var url = 'https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=' + interval + '&limit=' + limit;
 
     fetch(url)
@@ -924,7 +926,11 @@
 
   /* ── Controls → WebSocket + Re-render ── */
   controls.onChange(function () {
+    viewport.timeStart = null;
+    viewport.timeEnd = null;
     sendSubscribe();
+    // Also re-fetch for static hosting fallback
+    if (wsFailCount >= 2) fetchBinanceDirect();
   });
 
   /* ── Window resize ──────────────────── */

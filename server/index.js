@@ -195,7 +195,8 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.type === 'subscribe' && msg.timeframe) {
-      const tf = (msg.timeframe === '12h' || msg.timeframe === '24h') ? msg.timeframe : '24h';
+      const validTf = ['12h', '24h', '3d', '7d'];
+      const tf = validTf.includes(msg.timeframe) ? msg.timeframe : '24h';
       clientTimeframe.set(ws, tf);
       sendSnapshot(ws, tf).catch(console.error);
     } else if (msg.type === 'ping') {
