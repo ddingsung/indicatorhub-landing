@@ -919,7 +919,6 @@
     chartCont.classList.remove('placing', 'deleting');
     if (markerMode === 'buy' || markerMode === 'sell') chartCont.classList.add('placing');
     if (markerMode === 'delete') chartCont.classList.add('deleting');
-    if (menuDropdown) menuDropdown.classList.remove('open');
   }
 
   if (addBuyBtn) addBuyBtn.addEventListener('click', function (e) {

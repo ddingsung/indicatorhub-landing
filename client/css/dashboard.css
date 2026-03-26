@@ -752,6 +752,52 @@ body {
   animation: none;
 }
 
+/* ═══════ MARKER BUTTONS (header) ═══════ */
+.marker-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+.marker-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-terminal);
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  transition: all .15s;
+  padding: 0;
+}
+.marker-btn:hover { border-color: var(--text-muted); }
+
+.marker-buy { color: var(--neon-green); }
+.marker-buy.active {
+  background: rgba(0, 255, 65, 0.12);
+  border-color: var(--neon-green);
+  box-shadow: 0 0 6px rgba(0, 255, 65, 0.3);
+}
+.marker-sell { color: var(--neon-red); }
+.marker-sell.active {
+  background: rgba(255, 23, 68, 0.12);
+  border-color: var(--neon-red);
+  box-shadow: 0 0 6px rgba(255, 23, 68, 0.3);
+}
+.marker-del { color: #ffab00; }
+.marker-del.active {
+  background: rgba(255, 171, 0, 0.12);
+  border-color: #ffab00;
+  box-shadow: 0 0 6px rgba(255, 171, 0, 0.3);
+}
+.marker-clr { color: var(--text-muted); }
+.marker-clr:hover { color: var(--neon-red); border-color: var(--neon-red); }
+
 .header-desc {
   font-family: var(--font-terminal);
   font-size: 11px;

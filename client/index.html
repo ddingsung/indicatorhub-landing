@@ -131,7 +131,11 @@
         <div class="header-sys-info">
           <span class="sys-tag">LIVE</span>
           <span class="sys-tag tag-dim">BINANCE</span>
-          <span class="sys-tag tag-dim">WS-FEED</span>
+          <span class="marker-sep"></span>
+          <button class="marker-btn marker-buy" id="addBuyBtn" title="BUY marker">B</button>
+          <button class="marker-btn marker-sell" id="addSellBtn" title="SELL marker">S</button>
+          <button class="marker-btn marker-del" id="deleteMarkerBtn" title="Delete marker">-</button>
+          <button class="marker-btn marker-clr" id="clearMarkersBtn" title="Clear all">x</button>
         </div>
       </div>
     </div>
@@ -181,13 +185,6 @@
         <button class="menu-item menu-toggle" id="toggleVolume" data-indicator="volume">VOLUME <span class="toggle-state off">[OFF]</span></button>
         <button class="menu-item menu-toggle" id="toggleRsi" data-indicator="rsi">RSI 14 <span class="toggle-state off">[OFF]</span></button>
         <button class="menu-item menu-toggle" id="toggleMacd" data-indicator="macd">MACD <span class="toggle-state off">[OFF]</span></button>
-        <div class="menu-divider"></div>
-        <div class="menu-section">MANUAL MARKERS</div>
-        <button class="menu-item btn-buy-mode" id="addBuyBtn">[+] BUY SIGNAL</button>
-        <button class="menu-item btn-sell-mode" id="addSellBtn">[+] SELL SIGNAL</button>
-        <div class="menu-divider"></div>
-        <button class="menu-item btn-delete-mode" id="deleteMarkerBtn">[-] DELETE MARKER</button>
-        <button class="menu-item btn-clear" id="clearMarkersBtn">[x] CLEAR ALL</button>
       </div>
     </div>
   </div>
