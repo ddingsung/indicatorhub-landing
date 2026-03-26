@@ -96,10 +96,35 @@ app.post('/api/signal', async (req, res) => {
       body:JSON.stringify({chat_id:chatId,text:msg,parse_mode:'HTML'})
     });
     const tgData = await tgRes.json();
-    res.json({ ok: tgData.ok, type, confidence: conf });
+
+    // Broadcast marker to all chart clients
+    broadcast({
+      version: 1,
+      type: 'marker',
+      markerType: type.toLowerCase(),
+      price: price,
+      timestamp: Date.now()
+    });
+
+    res.json({ ok: tgData.ok, type, confidence: conf, price });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// Auto-bot control API
+let autoBotEnabled = true;
+
+app.post('/api/autobot', (req, res) => {
+  const { enabled, key } = req.body;
+  if (key !== 'ALPHA7') return res.status(403).json({ error: 'forbidden' });
+  autoBotEnabled = !!enabled;
+  globalThis._autoBotEnabled = autoBotEnabled;
+  res.json({ ok: true, enabled: autoBotEnabled });
+});
+
+app.get('/api/autobot', (req, res) => {
+  res.json({ enabled: autoBotEnabled });
 });
 
 // ---------------------------------------------------------------------------

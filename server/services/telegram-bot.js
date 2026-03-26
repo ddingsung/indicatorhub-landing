@@ -320,8 +320,16 @@ ${reasonsList}
 let aggregatorRef = null;
 let symbolRef = 'BTCUSDT';
 
+function isAutoBotEnabled() {
+  // Check the flag exposed by server/index.js
+  try {
+    return globalThis._autoBotEnabled !== false;
+  } catch { return true; }
+}
+
 function scan() {
   if (!aggregatorRef) return;
+  if (!isAutoBotEnabled()) return;
 
   // Get candle data from the aggregator's candle feed
   const candles = aggregatorRef._lastCandles || [];

@@ -182,6 +182,7 @@
       case 'liquidation':   handleLiquidation(msg);  break;
       case 'candle_update': handleCandleUpdate(msg); break;
       case 'status':        handleStatus(msg);       break;
+      case 'marker':        handleMarker(msg);       break;
     }
   }
 
@@ -310,6 +311,20 @@
   function handleStatus(msg) {
     if (msg.binanceConnected !== undefined) setStatus(msg.binanceConnected ? 'connected' : 'disconnected');
     if (msg.collectingSince) { state.collectingSince = msg.collectingSince; updateDataNotice(); }
+  }
+
+  function handleMarker(msg) {
+    if (!msg.markerType || !msg.price) return;
+    // Find x position: use last candle's x position (current price)
+    var coord = lastCoord;
+    var cx = coord ? coord.drawX + coord.drawW - 30 : 200;
+
+    manualMarkers.push({
+      type: msg.markerType === 'buy' ? 'buy' : 'sell',
+      price: Number(msg.price),
+      x: cx
+    });
+    scheduleRender();
   }
 
   /* ═══════════════════════════════════════════
