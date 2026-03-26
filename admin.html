@@ -127,6 +127,17 @@
   <div class="title">[ SIGNAL-7 ] MANUAL SIGNAL</div>
 
   <div class="row">
+    <label>Auto Bot</label>
+    <div class="btn-row">
+      <button class="type-btn" id="botOnBtn" style="color:#00ff41" onclick="setAutoBot(true)">ON</button>
+      <button class="type-btn" id="botOffBtn" style="color:#ff1744" onclick="setAutoBot(false)">OFF</button>
+    </div>
+    <div id="botStatus" style="font-size:10px;color:#5a6380;margin-top:6px;text-align:center;">Loading...</div>
+  </div>
+
+  <div style="height:1px;background:#141830;margin-bottom:16px;"></div>
+
+  <div class="row">
     <label>Signal Type</label>
     <div class="btn-row">
       <button class="type-btn buy" id="btnBuy" onclick="selectType('BUY')">BUY</button>
@@ -150,6 +161,44 @@
 
 <script>
 var selectedType = null;
+
+// Auto bot control
+async function loadBotStatus() {
+  try {
+    var res = await fetch('/api/autobot');
+    var data = await res.json();
+    updateBotUI(data.enabled);
+  } catch(e) {
+    document.getElementById('botStatus').textContent = 'Cannot reach server';
+  }
+}
+
+async function setAutoBot(enabled) {
+  try {
+    var res = await fetch('/api/autobot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled, key: 'ALPHA7' })
+    });
+    var data = await res.json();
+    updateBotUI(data.enabled);
+  } catch(e) {
+    document.getElementById('botStatus').textContent = 'Error: ' + e.message;
+  }
+}
+
+function updateBotUI(enabled) {
+  document.getElementById('botOnBtn').classList.toggle('selected', enabled);
+  document.getElementById('botOnBtn').style.borderColor = enabled ? '#00ff41' : '#141830';
+  document.getElementById('botOnBtn').style.background = enabled ? 'rgba(0,255,65,.08)' : 'transparent';
+  document.getElementById('botOffBtn').classList.toggle('selected', !enabled);
+  document.getElementById('botOffBtn').style.borderColor = !enabled ? '#ff1744' : '#141830';
+  document.getElementById('botOffBtn').style.background = !enabled ? 'rgba(255,23,68,.08)' : 'transparent';
+  document.getElementById('botStatus').textContent = enabled ? 'Auto signals: ACTIVE (5min scan)' : 'Auto signals: DISABLED';
+  document.getElementById('botStatus').style.color = enabled ? '#00ff41' : '#ff1744';
+}
+
+loadBotStatus();
 
 function selectType(t) {
   selectedType = t;
