@@ -248,9 +248,7 @@
   };
 
   /**
-   * Render an external array of signals (for manual markers).
-   * Each signal: { type: 'buy'|'sell', price: Number }
-   * Manual markers are drawn at a fixed X position (center of chart or specific time).
+   * Render manual markers snapped to candles with connecting lines.
    */
   SignalRenderer.prototype.renderManual = function (ctx, manualSignals, coord) {
     if (!manualSignals || manualSignals.length === 0) return;
@@ -267,39 +265,63 @@
 
     var timeStart = coord.timeStart, timeEnd = coord.timeEnd;
     var timeRange = timeEnd - timeStart;
+    var OFFSET = 28; // distance from candle to bubble tip
 
     for (var i = 0; i < manualSignals.length; i++) {
       var sig = manualSignals[i];
       var priceY = drawH * (1 - (sig.price - priceLow) / priceRange);
 
-      // Compute x from time, fallback to stored x or center
       var cx;
       if (sig.time != null && timeRange > 0) {
         cx = drawX + (sig.time - timeStart) / timeRange * drawW;
-      } else if (sig.x != null) {
-        cx = sig.x;
       } else {
         cx = drawX + drawW / 2;
       }
 
-      if (cx < drawX + 20 || cx > drawX + drawW - 20) continue;
+      if (cx < drawX - 10 || cx > drawX + drawW + 10) continue;
 
       var bg = sig.type === 'buy' ? BUY_BG : SELL_BG;
       var label = sig.type === 'buy' ? 'BUY' : 'SELL';
+      var isBuy = sig.type === 'buy';
 
-      if (sig.type === 'buy') {
-        if (priceY + 45 > drawH) {
-          this._drawBubble(ctx, cx, priceY - 18, label, bg, 'down');
+      // Determine bubble position
+      var bubbleY, dir;
+      if (isBuy) {
+        if (priceY + OFFSET + 25 > drawH) {
+          bubbleY = priceY - OFFSET;
+          dir = 'down';
         } else {
-          this._drawBubble(ctx, cx, priceY + 18, label, bg, 'up');
+          bubbleY = priceY + OFFSET;
+          dir = 'up';
         }
       } else {
-        if (priceY - 45 < 0) {
-          this._drawBubble(ctx, cx, priceY + 18, label, bg, 'up');
+        if (priceY - OFFSET - 25 < 0) {
+          bubbleY = priceY + OFFSET;
+          dir = 'up';
         } else {
-          this._drawBubble(ctx, cx, priceY - 18, label, bg, 'down');
+          bubbleY = priceY - OFFSET;
+          dir = 'down';
         }
       }
+
+      // Draw connecting line from candle to bubble
+      ctx.strokeStyle = isBuy ? 'rgba(38,166,154,0.5)' : 'rgba(239,83,80,0.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(cx, priceY);
+      ctx.lineTo(cx, bubbleY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Small dot on the candle
+      ctx.beginPath();
+      ctx.arc(cx, priceY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = isBuy ? BUY_BG : SELL_BG;
+      ctx.fill();
+
+      // Draw bubble
+      this._drawBubble(ctx, cx, bubbleY, label, bg, dir);
     }
 
     ctx.restore();

@@ -324,23 +324,14 @@
 
   function handleMarker(msg) {
     if (!msg.markerType || !msg.price) return;
-    console.log('[MARKER] Received:', msg.markerType, msg.price);
 
-    // Find closest candle time for accurate placement
-    var mTime = msg.timestamp || Date.now();
-    var bestTime = mTime;
-    if (state.candles.length > 0) {
-      var minDist = Infinity;
-      for (var i = 0; i < state.candles.length; i++) {
-        var d = Math.abs(state.candles[i].time - mTime);
-        if (d < minDist) { minDist = d; bestTime = state.candles[i].time; }
-      }
-    }
+    var mType = msg.markerType === 'buy' ? 'buy' : 'sell';
+    var candle = findNearestCandle(msg.timestamp || Date.now());
 
     manualMarkers.push({
-      type: msg.markerType === 'buy' ? 'buy' : 'sell',
-      price: Number(msg.price),
-      time: bestTime
+      type: mType,
+      price: candle ? (mType === 'buy' ? candle.low : candle.high) : Number(msg.price),
+      time: candle ? candle.time : (msg.timestamp || Date.now())
     });
     saveMarkers();
     scheduleRender();
@@ -944,6 +935,18 @@
     scheduleRender();
   });
 
+  // Find nearest candle to a given time
+  function findNearestCandle(time) {
+    var candles = state.candles;
+    if (candles.length === 0) return null;
+    var best = candles[0], bestDist = Math.abs(candles[0].time - time);
+    for (var i = 1; i < candles.length; i++) {
+      var d = Math.abs(candles[i].time - time);
+      if (d < bestDist) { best = candles[i]; bestDist = d; }
+    }
+    return best;
+  }
+
   chartCont.addEventListener('click', function (e) {
     if (!markerMode || !lastCoord) return;
 
@@ -954,14 +957,17 @@
 
     if (x < coord.drawX || x > coord.drawX + coord.drawW || y < 0 || y > coord.drawH) return;
 
-    var price = coord.priceHigh - (y / coord.drawH) * (coord.priceHigh - coord.priceLow);
     var timeFrac = (x - coord.drawX) / coord.drawW;
     var time = coord.timeStart + timeFrac * (coord.timeEnd - coord.timeStart);
 
+    // Snap to nearest candle
+    var candle = findNearestCandle(time);
+    if (!candle) return;
+
     manualMarkers.push({
       type: markerMode,
-      price: price,
-      time: time
+      price: markerMode === 'buy' ? candle.low : candle.high,
+      time: candle.time
     });
 
     saveMarkers();
