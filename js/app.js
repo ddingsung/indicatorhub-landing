@@ -192,7 +192,7 @@
     setStatus('disconnected');
     scheduleReconnect();
   }
-  function onError() { setStatus('error'); }
+  function onError() { setStatus('error'); scheduleReconnect(); }
 
   var wsFailCount = 0;
 
@@ -839,5 +839,17 @@
   /* ── Bootstrap ─────────────────────── */
   updateDataNotice();
   connect();
+
+  // Re-render when dashboard becomes visible (after gate entry)
+  var dashEl = document.getElementById('mainDashboard');
+  if (dashEl) {
+    var observer = new MutationObserver(function () {
+      if (dashEl.style.display !== 'none') {
+        setTimeout(function () { scheduleRender(); }, 100);
+        setTimeout(function () { scheduleRender(); }, 500);
+      }
+    });
+    observer.observe(dashEl, { attributes: true, attributeFilter: ['style'] });
+  }
 
 }());
